@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
+import time
 
 st.set_page_config(layout="wide")
 
-# Updated CSS with Royal Blue buttons and layout refinements
+# Final CSS containing all styles for Upload, Running, and Report states
 st.markdown("""
    <style>
    .stApp { background-color: #0E1117; }
@@ -76,10 +77,19 @@ st.markdown("""
        border-radius: 8px !important;
        font-weight: 500 !important;
    }
+
+   /* 4. Running & Report Specific Styles */
+   .status-card {
+       background-color: #1E1F23;
+       border: 1px solid #333;
+       border-radius: 10px;
+       padding: 20px;
+       margin-bottom: 10px;
+   }
    </style>
    """, unsafe_allow_html=True)
 
-# Initialize Session State to track progress
+# Initialize Session State
 if 'step' not in st.session_state:
     st.session_state.step = 'upload'
 
@@ -94,7 +104,7 @@ if st.session_state.step == 'upload':
 
     with st.container():
         main_csv = st.file_uploader("Drag & drop your CSV file here", type="csv", label_visibility="collapsed")
-        st.markdown(f'<div class="pill-container">{"".join([f"<div class='pill'>{c}</div>" for c in REQUIRED_COLUMNS])}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="pill-container">{"".join([f"<div class=\'pill\'>{c}</div>" for c in REQUIRED_COLUMNS])}</div>', unsafe_allow_html=True)
 
     if main_csv is not None:
         try:
@@ -112,7 +122,6 @@ if st.session_state.step == 'upload':
                 
                 st.table(df.head(2))
 
-                # Continue to Validation Button
                 col1, col2 = st.columns([5,1])
                 with col2:
                     if st.button("Continue to Validation →"):
@@ -137,7 +146,6 @@ elif st.session_state.step == 'ready':
         c3.number_input("WER THRESHOLD", value=0.15)
         c4.number_input("CONCURRENCY", value=3)
 
-    # Pipeline confirmation box
     st.markdown(f"""
         <div class="pipeline-box">
             <div>
@@ -150,8 +158,69 @@ elif st.session_state.step == 'ready':
     
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("Start Validation"):
-        st.success("Pipeline Initiated!")
+        st.session_state.step = 'running'
+        st.rerun()
 
     if st.button("← Back to Upload"):
         st.session_state.step = 'upload'
         st.rerun()
+
+# --- STEP 3: VALIDATION RUNNING ---
+elif st.session_state.step == 'running':
+    st.write("### Validation Running")
+    st.caption(f"Processing {st.session_state.row_count} rows...")
+
+    # Stepper UI
+    s1, s2, s3, s4 = st.columns(4)
+    s1.markdown("✅ **Upload**")
+    s2.markdown("🔵 **Structural Check**")
+    s3.markdown("⚪ Accuracy Check")
+    s4.markdown("⚪ Report")
+
+    # Progress Cards
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(f'<div class="status-card"><b>Structural Check</b><br><small>Processing {st.session_state.row_count} rows...</small></div>', unsafe_allow_html=True)
+        st.progress(50)
+    with c2:
+        st.markdown('<div class="status-card" style="opacity:0.5;"><b>Accuracy Check</b><br><small>Waiting for structural...</small></div>', unsafe_allow_html=True)
+        st.progress(0)
+
+    st.write("#### Live Results")
+    # Simulated Live Table
+    live_df = pd.DataFrame([
+        {"AUDIO ID": "test_001", "STRUCTURAL": "Processing...", "WER": "—", "ACCURACY": "Processing..."},
+        {"AUDIO ID": "test_002", "STRUCTURAL": "Processing...", "WER": "—", "ACCURACY": "Processing..."}
+    ])
+    st.table(live_df)
+    
+    if st.button("Finish & View Report"):
+        st.session_state.step = 'report'
+        st.rerun()
+
+# --- STEP 4: VALIDATION REPORT ---
+elif st.session_state.step == 'report':
+    t1, t2 = st.columns([5, 1])
+    with t2:
+        if st.button("New Run"):
+            st.session_state.step = 'upload'
+            st.rerun()
+
+    st.write("### Validation Report")
+    st.caption(f"{st.session_state.file_name} — {st.session_state.row_count} rows processed")
+
+    # Summary Metrics
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Rows", st.session_state.row_count)
+    m2.metric("Structural Pass", "0.0%", "-100%")
+    m3.metric("Accuracy Pass", "N/A")
+    m4.metric("Avg WER", "N/A")
+
+    # Error Table
+    st.write("#### Detailed Results")
+    results_df = pd.DataFrame([
+        {"AUDIO ID": "test_001", "STRUCTURAL": "❌ Fail: File not found (404)", "WER SCORE": "—", "ACCURACY": "Skipped"},
+        {"AUDIO ID": "test_002", "STRUCTURAL": "❌ Fail: File not found (404)", "WER SCORE": "—", "ACCURACY": "Skipped"}
+    ])
+    st.table(results_df)
+    st.download_button("Download CSV Report", data="audio_id,status\ntest_001,fail\ntest_002,fail", file_name="report.csv")
