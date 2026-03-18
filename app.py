@@ -3,85 +3,110 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
-# Updated CSS: We style the ACTUAL streamlit uploader instead of hiding it
+# CSS to expand the block and ensure functional clicks work
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; }
     
-    /* Target the actual Streamlit Upload Box */
-    [data-testid="stFileUploader"] section {
-        background-color: #1E1F23 !important;
-        border: 2px dashed #333 !important;
-        border-radius: 12px !important;
-        padding: 30px !important;
+    /* The Large Visual Upload Box from your screenshot */
+    .upload-box {
+        background-color: #1E1F23;
+        border: 2px dashed #333;
+        border-radius: 12px;
+        padding: 80px 20px; /* Increased padding to expand the block */
+        text-align: center;
+        color: #E0E0E0;
+        position: relative;
+        transition: 0.3s;
     }
+    .upload-box:hover { border-color: #4169E1; }
+    
+    .upload-icon { font-size: 45px; margin-bottom: 20px; }
+    .primary-text { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+    .secondary-text { color: #808495; font-size: 15px; margin-bottom: 30px; }
+    .browse-link { color: #4169E1; text-decoration: underline; }
 
-    /* Style the 'Browse files' button inside the uploader */
-    [data-testid="stFileUploader"] button {
-        background-color: #2D2E35 !important;
-        border: 1px solid #444 !important;
-        color: white !important;
-        border-radius: 8px !important;
-    }
-
-    /* Custom Pill styling for the required columns */
+    /* Pill styling for required columns */
     .pill-wrapper {
         display: flex;
         justify-content: center;
-        gap: 10px;
+        gap: 12px;
         flex-wrap: wrap;
-        margin-top: 20px;
     }
     .pill {
         background-color: #2D2E35;
         border: 1px solid #444;
-        padding: 4px 12px;
+        padding: 6px 15px;
         border-radius: 4px;
         font-family: monospace;
         font-size: 13px;
         color: #E0E0E0;
     }
 
-    /* Right-aligned Royal Blue Button */
-    div.stButton > button:first-child {
+    /* POSITIONING THE REAL UPLOADER TO FILL THE ENTIRE LARGE BOX */
+    [data-testid="stFileUploader"] {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        z-index: 10;
+        cursor: pointer;
+    }
+    
+    /* Ensure the internal Streamlit elements don't block the click */
+    [data-testid="stFileUploader"] section {
+        height: 100%;
+        padding: 0;
+    }
+
+    /* Start Validation Button - Royal Blue & Right Aligned */
+    div.stButton > button {
         background-color: #4169E1 !important;
         color: white !important;
         border: none !important;
         float: right;
-        padding: 8px 24px !important;
+        padding: 10px 30px !important;
+        border-radius: 6px !important;
     }
 
-    /* Validation Settings Styles */
-    .stExpander { background-color: #1E1F23 !important; border: 1px solid #333 !important; }
-    label p { font-weight: bold !important; color: #E0E0E0 !important; font-size: 12px !important; }
-    .stCaption { color: #808495 !important; }
+    /* Expander Styling */
+    .stExpander {
+        background-color: #1E1F23 !important;
+        border: 1px solid #333 !important;
+        margin-top: 30px;
+    }
+    label p { font-weight: bold !important; color: #E0E0E0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("NEW VALIDATION RUN")
 
-# --- DATA LOGIC ---
 REQUIRED_COLUMNS = ['audio_id', 'speaker_A_audio', 'speaker_B_audio', 'combined_audio', 'transcription']
 valid_csv = False
 
-st.write("### Upload Audio Dataset CSV")
-st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
+# --- UPLOAD SECTION ---
+with st.container():
+    st.write("### Upload Audio Dataset CSV")
+    st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
+    
+    # Large expanded visual block
+    st.markdown(f"""
+        <div class="upload-box">
+            <div class="upload-icon">📤</div>
+            <div class="primary-text">Drag & drop your CSV file</div>
+            <div class="secondary-text">or <span class="browse-link">click to browse</span></div>
+            <div class="pill-wrapper">
+                {"".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Real functional uploader hidden but filling the expanded box
+    main_csv = st.file_uploader("Upload", type="csv", label_visibility="collapsed")
 
-# The REAL uploader - No more fake boxes or overlays
-main_csv = st.file_uploader(
-    "Drag & drop your CSV file here", 
-    type="csv", 
-    label_visibility="visible"
-)
-
-# Show the required column pills immediately below the uploader
-st.markdown(f"""
-    <div class="pill-wrapper">
-        {"".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])}
-    </div>
-    """, unsafe_allow_html=True)
-
-# --- YOUR ERROR HANDLING LOGIC ---
+# --- ERROR HANDLING ---
 if main_csv is not None:
     try:
         df = pd.read_csv(main_csv)
@@ -93,12 +118,12 @@ if main_csv is not None:
             valid_csv = False
         else:
             valid_csv = True
-            st.success("CSV validated successfully.")
+            st.success(f"File '{main_csv.name}' validated successfully!")
     except Exception as e:
         st.error(f"**Parse Errors**\n\n• Could not read CSV file: {str(e)}")
         valid_csv = False
 
-# VALIDATION SETTINGS
+# --- VALIDATION SETTINGS ---
 with st.expander("⚙️ Validation Settings", expanded=True):
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -115,4 +140,5 @@ with st.expander("⚙️ Validation Settings", expanded=True):
         st.caption("Parallel rows (1-10)")
 
 st.markdown("<br>", unsafe_allow_html=True)
-st.button("Start Validation", disabled=not valid_csv)
+if st.button("Start Validation", disabled=not valid_csv):
+    st.write("Validation process started...")
