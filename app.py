@@ -4,29 +4,37 @@ import pandas as pd
 # Page configuration
 st.set_page_config(page_title="Validation PSDN App", layout="wide")
 
-# The "No-White-Zone" CSS override
+# Updated CSS to match the exact alignment and dark theme
 st.markdown("""
     <style>
-    /* 1. Global Dark Theme Enforcement */
+    /* Global Dark Theme Background */
     .stApp {
         background-color: #0E1117;
     }
 
-    /* 2. Unified Drag & Drop Block - Increased size and Centered */
+    /* Unified Dark Uploader Block */
     [data-testid="stFileUploader"] {
         background-color: #1E1F23 !important;
         border: 1px solid #333 !important;
         border-radius: 12px !important;
-        padding: 80px 40px !important;
+        padding: 60px 40px !important;
         text-align: center;
     }
+    
+    /* Center the internal uploader content */
+    [data-testid="stFileUploader"] section {
+        justify-content: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
 
-    /* 3. Merging Labels inside the Dark Box */
-    .internal-labels {
+    /* Positioning pills inside the block, above the "Drag & drop" text */
+    .internal-pill-container {
         text-align: center;
-        margin-bottom: -110px; /* Pulls pills deep into the uploader area */
+        margin-bottom: -100px; /* Adjusts the vertical position inside the box */
         position: relative;
-        z-index: 99;
+        z-index: 100;
     }
 
     .column-pill {
@@ -41,20 +49,13 @@ st.markdown("""
         border: 1px solid #444;
     }
 
-    .req-text {
-        color: #808495;
-        font-size: 14px;
-        margin-bottom: 8px;
-    }
-
-    /* 4. Validation Settings - DARK MODE FIX */
+    /* Validation Settings Dark Theme */
     .stExpander {
-        background-color: #1E1F23 !important; /* Forces dark background */
+        background-color: #1E1F23 !important;
         border: 1px solid #333 !important;
         border-radius: 8px !important;
     }
     
-    /* Ensuring labels inside the settings are readable in dark mode */
     label[data-testid="stWidgetLabel"] p {
         font-size: 13px !important;
         font-weight: bold !important;
@@ -66,7 +67,7 @@ st.markdown("""
         color: #808495 !important;
     }
 
-    /* 5. Start Validation - Aligned Right */
+    /* Right-aligned Royal Blue Button */
     div.stButton > button:first-child {
         background-color: #4169E1;
         color: white;
@@ -84,10 +85,9 @@ st.title("NEW VALIDATION RUN")
 st.write("### Upload Audio Dataset CSV")
 st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
 
-# Unified Dark Block Labels
+# Column Pills Block (Word "Required columns" removed)
 st.markdown("""
-    <div class="internal-labels">
-        <div class="req-text">Required columns:</div>
+    <div class="internal-pill-container">
         <div>
             <span class="column-pill">audio_id</span>
             <span class="column-pill">speaker_A_audio</span>
@@ -105,7 +105,7 @@ main_csv = st.file_uploader(
     label_visibility="collapsed"
 )
 
-# --- VALIDATION SETTINGS (Now strictly Dark) ---
+# --- VALIDATION SETTINGS ---
 with st.expander("⚙️ Validation Settings", expanded=True):
     v_col1, v_col2, v_col3, v_col4 = st.columns(4)
     with v_col1:
@@ -122,12 +122,7 @@ with st.expander("⚙️ Validation Settings", expanded=True):
         st.markdown('<p class="stCaption">Parallel rows (1-10)</p>', unsafe_allow_html=True)
 
 # --- ACTION BUTTON ---
-st.markdown("<br>", unsafe_allow_html=True) # Adds a little spacing
+st.markdown("<br>", unsafe_allow_html=True)
 btn_spacer, btn_col = st.columns([5, 1])
 with btn_col:
     run_pressed = st.button("Start Validation", disabled=not main_csv)
-
-# --- RESULTS ---
-if main_csv and run_pressed:
-    st.write("---")
-    st.success("Validation running...")
