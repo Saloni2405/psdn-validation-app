@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
-# Updated CSS: Center-aligned expansion with pills inside the box
+# Corrected CSS: Cleaned up duplicate tags and maintained center alignment
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; }
@@ -18,7 +18,7 @@ st.markdown("""
         flex-direction: column;
         align-items: center;      /* Centers horizontally */
         justify-content: center;    /* Centers vertically */
-        min-height: 280px;         /* Slightly taller to fit pills comfortably */
+        min-height: 280px;         /* Keeps the box expanded */
     }
 
     /* 2. Style the 'Browse files' button inside the uploader */
@@ -27,7 +27,7 @@ st.markdown("""
         border: 1px solid #444 !important;
         color: white !important;
         border-radius: 8px !important;
-        margin-top: 10px; /* Adds spacing between the text and button */
+        margin-top: 10px; 
     }
 
     /* 3. Custom Pill styling: Pulled into the expanded box */
@@ -36,7 +36,7 @@ st.markdown("""
         justify-content: center;
         gap: 10px;
         flex-wrap: wrap;
-        margin-top: -65px; /* Adjust this to move pills higher or lower inside the box */
+        margin-top: -65px; /* Pulls pills inside the dashed area */
         position: relative;
         z-index: 1;
         padding-bottom: 20px;
@@ -51,16 +51,19 @@ st.markdown("""
         padding: 8px 24px !important;
     }
 
-    /* Validation Settings Styles */
-    .stExpander { background-color: #1E1F23 !important; border: 1px solid #333 !important; }
-    label p { font-weight: bold !important; color: #E0E0E0 !important; font-size: 12px !important; }
-    .stCaption { color: #808495 !important; }
-    </style>
-
-    /* Validation Settings Styles */
-    .stExpander { background-color: #1E1F23 !important; border: 1px solid #333 !important; }
-    label p { font-weight: bold !important; color: #E0E0E0 !important; font-size: 12px !important; }
-    .stCaption { color: #808495 !important; }
+    /* 5. Validation Settings Styles */
+    .stExpander { 
+        background-color: #1E1F23 !important; 
+        border: 1px solid #333 !important; 
+    }
+    label p { 
+        font-weight: bold !important; 
+        color: #E0E0E0 !important; 
+        font-size: 12px !important; 
+    }
+    .stCaption { 
+        color: #808495 !important; 
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -73,21 +76,21 @@ valid_csv = False
 st.write("### Upload Audio Dataset CSV")
 st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
 
-# The REAL uploader - No more fake boxes or overlays
+# The REAL uploader
 main_csv = st.file_uploader(
     "Drag & drop your CSV file here", 
     type="csv", 
     label_visibility="visible"
 )
 
-# Show the required column pills immediately below the uploader
+# Show the required column pills - CSS pulls these into the box visually
 st.markdown(f"""
     <div class="pill-wrapper">
         {"".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])}
     </div>
     """, unsafe_allow_html=True)
 
-# --- YOUR ERROR HANDLING LOGIC ---
+# --- ERROR HANDLING LOGIC ---
 if main_csv is not None:
     try:
         df = pd.read_csv(main_csv)
