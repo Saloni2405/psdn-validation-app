@@ -4,24 +4,24 @@ import pandas as pd
 # Page configuration
 st.set_page_config(page_title="Validation PSDN App", layout="wide")
 
-# Updated CSS to match the exact alignment and dark theme
+# Force Dark Theme and Unified UI Layout
 st.markdown("""
     <style>
-    /* Global Dark Theme Background */
+    /* 1. Force App Background to remain dark */
     .stApp {
-        background-color: #0E1117;
+        background-color: #0E1117 !important;
     }
 
-    /* Unified Dark Uploader Block */
+    /* 2. Enhanced & Centered Dark Uploader Block */
     [data-testid="stFileUploader"] {
         background-color: #1E1F23 !important;
         border: 1px solid #333 !important;
         border-radius: 12px !important;
-        padding: 60px 40px !important;
+        padding: 80px 40px !important; /* Increased size */
         text-align: center;
     }
     
-    /* Center the internal uploader content */
+    /* Center text and icon inside uploader */
     [data-testid="stFileUploader"] section {
         justify-content: center;
         display: flex;
@@ -29,12 +29,13 @@ st.markdown("""
         align-items: center;
     }
 
-    /* Positioning pills inside the block, above the "Drag & drop" text */
-    .internal-pill-container {
-        text-align: center;
-        margin-bottom: -100px; /* Adjusts the vertical position inside the box */
+    /* Positioning pills inside the block area */
+    .pill-layer {
         position: relative;
+        top: 140px; /* Moves pills down into the visual box area */
         z-index: 100;
+        text-align: center;
+        pointer-events: none; /* Allows interaction with uploader beneath */
     }
 
     .column-pill {
@@ -49,7 +50,7 @@ st.markdown("""
         border: 1px solid #444;
     }
 
-    /* Validation Settings Dark Theme */
+    /* 3. Validation Settings - DARK THEME FIX (No White) */
     .stExpander {
         background-color: #1E1F23 !important;
         border: 1px solid #333 !important;
@@ -65,9 +66,10 @@ st.markdown("""
     
     .stCaption {
         color: #808495 !important;
+        font-size: 12px !important;
     }
 
-    /* Right-aligned Royal Blue Button */
+    /* 4. Start Validation Button - Aligned Right */
     div.stButton > button:first-child {
         background-color: #4169E1;
         color: white;
@@ -85,9 +87,9 @@ st.title("NEW VALIDATION RUN")
 st.write("### Upload Audio Dataset CSV")
 st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
 
-# Column Pills Block (Word "Required columns" removed)
+# Column Pills Block (No 'Required columns' text)
 st.markdown("""
-    <div class="internal-pill-container">
+    <div class="pill-layer">
         <div>
             <span class="column-pill">audio_id</span>
             <span class="column-pill">speaker_A_audio</span>
@@ -98,14 +100,14 @@ st.markdown("""
     </div>
     """, unsafe_allow_html=True)
 
-# Main Uploader
+# Main Uploader with bold label
 main_csv = st.file_uploader(
     "**Drag & drop your CSV file** or click to browse", 
     type=["csv"], 
     label_visibility="collapsed"
 )
 
-# --- VALIDATION SETTINGS ---
+# --- VALIDATION SETTINGS (Strictly Dark) ---
 with st.expander("⚙️ Validation Settings", expanded=True):
     v_col1, v_col2, v_col3, v_col4 = st.columns(4)
     with v_col1:
