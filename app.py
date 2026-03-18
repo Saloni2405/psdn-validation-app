@@ -64,6 +64,12 @@ st.markdown("""
     }
     label p { font-weight: bold !important; color: #E0E0E0 !important; font-size: 12px !important; }
     .stCaption { color: #808495 !important; }
+    
+    /* Ensure number input arrows are always visible in dark mode */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button {
+        opacity: 1;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -96,16 +102,18 @@ with st.container():
 with st.expander("⚙️ Validation Settings", expanded=True):
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.number_input("MIN DURATION (S)", value=1)
+        # Step=1 ensures whole number increments
+        st.number_input("MIN DURATION (S)", value=1, min_value=0, step=1)
         st.caption("Minimum audio length")
     with col2:
-        st.number_input("MAX DURATION (S)", value=600)
+        st.number_input("MAX DURATION (S)", value=600, min_value=1, step=1)
         st.caption("Maximum audio length")
     with col3:
-        st.number_input("WER THRESHOLD", value=0.15)
+        # format="%.2f" and step=0.01 allows decimal increments
+        st.number_input("WER THRESHOLD", value=0.15, min_value=0.0, max_value=1.0, step=0.01, format="%.2f")
         st.caption("Max WER to pass (0-1)")
     with col4:
-        st.number_input("CONCURRENCY", value=3)
+        st.number_input("CONCURRENCY", value=3, min_value=1, max_value=10, step=1)
         st.caption("Parallel rows (1-10)")
 
 st.markdown("<br>", unsafe_allow_html=True)
