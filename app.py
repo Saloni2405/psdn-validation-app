@@ -13,7 +13,7 @@ st.markdown("""
         margin: auto;
     }
 
-    /* Custom Drag & Drop Box based on your SS */
+    /* Custom Drag & Drop Box */
     .upload-box {
         background-color: #1E1F23;
         border: 2px dashed #333;
@@ -31,7 +31,7 @@ st.markdown("""
     .secondary-text { color: #808495; font-size: 14px; margin-bottom: 25px; }
     .browse-link { color: #4169E1; text-decoration: underline; cursor: pointer; }
 
-    /* Pill styling strictly from your reference */
+    /* Pill styling */
     .pill-wrapper {
         display: flex;
         justify-content: center;
@@ -62,13 +62,15 @@ st.markdown("""
         border: 1px solid #333 !important;
         margin-top: 20px;
     }
+    
+    /* Style labels and captions */
     label p { font-weight: bold !important; color: #E0E0E0 !important; font-size: 12px !important; }
     .stCaption { color: #808495 !important; }
-    
-    /* Ensure number input arrows are always visible in dark mode */
-    input[type=number]::-webkit-inner-spin-button, 
-    input[type=number]::-webkit-outer-spin-button {
-        opacity: 1;
+
+    /* Ensure the number input field itself stays dark and clean */
+    div[data-testid="stNumberInput"] div[data-baseweb="input"] {
+        background-color: #1E1F23 !important;
+        color: white !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -79,7 +81,6 @@ with st.container():
     st.write("### Upload Audio Dataset CSV")
     st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
     
-    # EXACT UI FROM YOUR SCREENSHOT (But Dark)
     st.markdown("""
         <div class="upload-box">
             <div class="upload-icon">📤</div>
@@ -95,25 +96,23 @@ with st.container():
         </div>
         """, unsafe_allow_html=True)
     
-    # Hidden actual uploader to handle the file logic
     uploaded_file = st.file_uploader("Upload", type="csv", label_visibility="collapsed")
 
 # VALIDATION SETTINGS SECTION
 with st.expander("⚙️ Validation Settings", expanded=True):
+    # Using 4 columns to ensure enough width for the vertical arrow steppers
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        # Step=1 ensures whole number increments
-        st.number_input("MIN DURATION (S)", value=1, min_value=0, step=1)
+        st.number_input("MIN DURATION (S)", value=1, step=1)
         st.caption("Minimum audio length")
     with col2:
-        st.number_input("MAX DURATION (S)", value=600, min_value=1, step=1)
+        st.number_input("MAX DURATION (S)", value=600, step=1)
         st.caption("Maximum audio length")
     with col3:
-        # format="%.2f" and step=0.01 allows decimal increments
-        st.number_input("WER THRESHOLD", value=0.15, min_value=0.0, max_value=1.0, step=0.01, format="%.2f")
+        st.number_input("WER THRESHOLD", value=0.15, step=0.01, format="%.2f")
         st.caption("Max WER to pass (0-1)")
     with col4:
-        st.number_input("CONCURRENCY", value=3, min_value=1, max_value=10, step=1)
+        st.number_input("CONCURRENCY", value=3, step=1)
         st.caption("Parallel rows (1-10)")
 
 st.markdown("<br>", unsafe_allow_html=True)
