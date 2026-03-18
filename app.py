@@ -3,44 +3,46 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
-# Updated CSS: We style the ACTUAL streamlit uploader instead of hiding it
+# Updated CSS: Center-aligned expansion with pills inside the box
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; }
     
-   /* Target the actual Streamlit Upload Box and Expand it */
+    /* 1. Target the actual Streamlit Upload Box and Center Everything */
     [data-testid="stFileUploader"] section {
         background-color: #1E1F23 !important;
         border: 2px dashed #333 !important;
         border-radius: 12px !important;
-        padding: 80px 30px !important; /* Changed from 30px to 80px to expand */
+        padding: 80px 30px !important; 
         display: flex;
         flex-direction: column;
-        align-items: center;
-        min-height: 250px; /* Ensures it stays large */
+        align-items: center;      /* Centers horizontally */
+        justify-content: center;    /* Centers vertically */
+        min-height: 280px;         /* Slightly taller to fit pills comfortably */
     }
-            
-            /* Style the 'Browse files' button inside the uploader */
+
+    /* 2. Style the 'Browse files' button inside the uploader */
     [data-testid="stFileUploader"] button {
         background-color: #2D2E35 !important;
         border: 1px solid #444 !important;
         color: white !important;
         border-radius: 8px !important;
+        margin-top: 10px; /* Adds spacing between the text and button */
     }
 
-    /* Custom Pill styling: Pulled into the expanded box */
+    /* 3. Custom Pill styling: Pulled into the expanded box */
     .pill-wrapper {
         display: flex;
         justify-content: center;
         gap: 10px;
         flex-wrap: wrap;
-        margin-top: -70px; /* Pulls the pills up into the box */
+        margin-top: -65px; /* Adjust this to move pills higher or lower inside the box */
         position: relative;
         z-index: 1;
-        padding-bottom: 30px;
+        padding-bottom: 20px;
     }
 
-    /* Right-aligned Royal Blue Button */
+    /* 4. Right-aligned Royal Blue Button */
     div.stButton > button:first-child {
         background-color: #4169E1 !important;
         color: white !important;
@@ -48,6 +50,12 @@ st.markdown("""
         float: right;
         padding: 8px 24px !important;
     }
+
+    /* Validation Settings Styles */
+    .stExpander { background-color: #1E1F23 !important; border: 1px solid #333 !important; }
+    label p { font-weight: bold !important; color: #E0E0E0 !important; font-size: 12px !important; }
+    .stCaption { color: #808495 !important; }
+    </style>
 
     /* Validation Settings Styles */
     .stExpander { background-color: #1E1F23 !important; border: 1px solid #333 !important; }
