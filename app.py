@@ -3,12 +3,12 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
-# Updated CSS: Everything is centered and styled to match your reference image
+# Updated CSS: Added styling for the Data Preview Table
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; }
     
-    /* 1. Target the actual Streamlit Upload Box and Center Everything */
+    /* 1. Target the actual Streamlit Upload Box */
     [data-testid="stFileUploader"] section {
         background-color: #1E1F23 !important;
         border: 2px dashed #333 !important;
@@ -16,12 +16,11 @@ st.markdown("""
         padding: 80px 30px !important; 
         display: flex;
         flex-direction: column;
-        align-items: center;      /* Centers horizontally */
-        justify-content: center;    /* Centers vertically */
-        min-height: 280px;         /* Maintains the large expanded look */
+        align-items: center;
+        justify-content: center;
+        min-height: 280px;
     }
 
-    /* 2. Style the 'Browse files' button to be dark grey with white text */
     [data-testid="stFileUploader"] button {
         background-color: #2D2E35 !important;
         border: 1px solid #444 !important;
@@ -30,18 +29,17 @@ st.markdown("""
         margin-top: 10px; 
     }
 
-    /* 3. Custom Pill styling: Positioned inside the bottom of the box */
     .pill-wrapper {
         display: flex;
         justify-content: center;
         gap: 10px;
         flex-wrap: wrap;
-        margin-top: -65px; /* Pulls pills into the expanded dashed area */
+        margin-top: -65px; 
         position: relative;
         z-index: 1;
         padding-bottom: 20px;
     }
-    
+
     .pill {
         background-color: #2D2E35;
         border: 1px solid #444;
@@ -52,71 +50,82 @@ st.markdown("""
         color: #E0E0E0;
     }
 
-    /* 4. Right-aligned Royal Blue Button */
+    /* 2. Success/Preview Header Styling */
+    .preview-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 20px 0 10px 0;
+        color: #E0E0E0;
+    }
+    .status-icon { color: #4CAF50; font-size: 20px; }
+    .row-count { color: #808495; font-size: 14px; margin-left: 10px; }
+
+    /* 3. Right-aligned Royal Blue Button */
     div.stButton > button:first-child {
         background-color: #4169E1 !important;
         color: white !important;
         border: none !important;
-        float: left; /* Kept left as per your latest screenshot reference */
+        float: right;
         padding: 8px 24px !important;
         border-radius: 6px !important;
     }
 
-    /* 5. Validation Settings Styles */
-    .stExpander { 
-        background-color: #1E1F23 !important; 
-        border: 1px solid #333 !important; 
+    /* 4. Table Styling to match dark theme */
+    [data-testid="stTable"] {
+        background-color: #1E1F23;
+        border-radius: 10px;
+        overflow: hidden;
     }
-    label p { 
-        font-weight: bold !important; 
-        color: #E0E0E0 !important; 
-        font-size: 12px !important; 
-    }
-    .stCaption { 
-        color: #808495 !important; 
-    }
+
+    .stExpander { background-color: #1E1F23 !important; border: 1px solid #333 !important; }
+    label p { font-weight: bold !important; color: #E0E0E0 !important; font-size: 12px !important; }
+    .stCaption { color: #808495 !important; }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("NEW VALIDATION RUN")
 
-# --- DATA LOGIC ---
 REQUIRED_COLUMNS = ['audio_id', 'speaker_A_audio', 'speaker_B_audio', 'combined_audio', 'transcription']
 valid_csv = False
+df = None
 
 st.write("### Upload Audio Dataset CSV")
 st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
 
-# The functional uploader
-main_csv = st.file_uploader(
-    "Drag & drop your CSV file here", 
-    type="csv", 
-    label_visibility="visible"
-)
+main_csv = st.file_uploader("Drag & drop your CSV file here", type="csv", label_visibility="visible")
 
-# The pills that appear inside the box visually
 st.markdown(f"""
     <div class="pill-wrapper">
         {"".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])}
     </div>
     """, unsafe_allow_html=True)
 
-# --- ERROR HANDLING LOGIC ---
+# --- ERROR HANDLING & PREVIEW LOGIC ---
 if main_csv is not None:
     try:
         df = pd.read_csv(main_csv)
         missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
         
         if missing_cols:
-            st.markdown("<br>", unsafe_allow_html=True)
             st.error(f"**Parse Errors**\n\n• Missing required columns: {', '.join(missing_cols)}")
-            valid_csv = False
         else:
             valid_csv = True
-            st.success("CSV validated successfully.")
+            
+            # This block creates the preview look from your screenshot
+            st.markdown(f"""
+                <div class="preview-header">
+                    <span class="status-icon">✅</span>
+                    <b>{main_csv.name}</b>
+                    <span class="row-count">{len(df)} rows parsed</span>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Showing first 2 rows as requested in screenshot
+            st.table(df.head(2))
+            
     except Exception as e:
         st.error(f"**Parse Errors**\n\n• Could not read CSV file: {str(e)}")
-        valid_csv = False
 
 # VALIDATION SETTINGS
 with st.expander("⚙️ Validation Settings", expanded=True):
@@ -135,4 +144,5 @@ with st.expander("⚙️ Validation Settings", expanded=True):
         st.caption("Parallel rows (1-10)")
 
 st.markdown("<br>", unsafe_allow_html=True)
-st.button("Start Validation", disabled=not valid_csv)
+if st.button("Start Validation", disabled=not valid_csv):
+    st.info("Validation sequence initiated...")
