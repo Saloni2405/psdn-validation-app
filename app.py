@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import time
+import requests
 
 st.set_page_config(layout="wide", page_title="AudioQA Dataset Validation")
 
-# --- CONSOLIDATED CSS ---
+# --- CUSTOM CSS ---
 st.markdown("""
   <style>
   .stApp { background-color: #0E1117; }
@@ -90,13 +91,28 @@ st.markdown("""
   </style>
   """, unsafe_allow_html=True)
 
+# --- HELPER FUNCTIONS ---
+def validate_structural_integrity(row):
+    """Checks if audio links return 200 OK or 404 Fail."""
+    audio_links = {
+        'Speaker A': row['speaker_A_audio'],
+        'Speaker B': row['speaker_B_audio'],
+        'Combined': row['combined_audio']
+    }
+    for label, url in audio_links.items():
+        try:
+            # Use HEAD request to check link existence without downloading
+            resp = requests.head(url, allow_redirects=True, timeout=5)
+            if resp.status_code != 200:
+                return "❌ Fail", f"{label}: File not found ({resp.status_code})"
+        except Exception:
+            return "❌ Fail", f"{label}: Connection Error"
+    return "✅ Pass", ""
+
 # --- SESSION INITIALIZATION ---
-if 'step' not in st.session_state:
-    st.session_state.step = 'upload'
-if 'df' not in st.session_state:
-    st.session_state.df = None
-if 'results' not in st.session_state:
-    st.session_state.results = []
+if 'step' not in st.session_state: st.session_state.step = 'upload'
+if 'df' not in st.session_state: st.session_state.df = None
+if 'results' not in st.session_state: st.session_state.results = []
 
 REQUIRED_COLUMNS = ['audio_id', 'speaker_A_audio', 'speaker_B_audio', 'combined_audio', 'transcription']
 
@@ -105,11 +121,10 @@ st.title("NEW VALIDATION RUN")
 # --- STEP 1: UPLOAD & PREVIEW ---
 if st.session_state.step == 'upload':
     st.write("### Upload Audio Dataset CSV")
-    st.caption("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
+    st.caption("Select folder containing a CSV with Google Drive links and transcription JSON.")
 
     with st.container():
-        main_csv = st.file_uploader("Drag & drop your CSV file here", type="csv", label_visibility="collapsed")
-        # Pills kept persistent inside the box
+        main_csv = st.file_uploader("Upload", type="csv", label_visibility="collapsed")
         st.markdown(f'<div class="pill-container">{"".join([f"<div class=\'pill\'>{c}</div>" for c in REQUIRED_COLUMNS])}</div>', unsafe_allow_html=True)
 
     if main_csv is not None:
@@ -129,11 +144,10 @@ if st.session_state.step == 'upload':
                     </div>
                     <div class="row-info">{len(df)} rows parsed</div>
                 """, unsafe_allow_html=True)
-               
                 st.table(df.head(2))
 
                 # Right Aligned Continue Button
-                col_space, col_btn = st.columns([5,1])
+                _, col_btn = st.columns([5,1])
                 with col_btn:
                     if st.button("Continue to Validation →", use_container_width=True):
                         st.session_state.step = 'ready'
@@ -150,20 +164,9 @@ elif st.session_state.step == 'ready':
 
     with st.expander("⚙️ Validation Settings", expanded=False):
         c1, c2, c3, c4 = st.columns(4)
-        c1.number_input("MIN DURATION (S)", value=1)
-        c2.number_input("MAX DURATION (S)", value=600)
-        c3.number_input("WER THRESHOLD", value=0.15)
-        c4.number_input("CONCURRENCY", value=3)
+        wer_thresh = c3.number_input("WER THRESHOLD", value=0.15)
 
-    st.markdown(f"""
-        <div class="pipeline-box">
-            <div>
-                <b style="color: #4169E1;">Pipeline will run:</b><br>
-                <span style="font-size: 0.9rem; color: #E0E0E0;">1. Structural check on all {st.session_state.row_count} rows</span><br>
-                <span style="font-size: 0.9rem; color: #E0E0E0;">2. Accuracy check on passing rows only</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f'<div class="pipeline-box"><div><b style="color: #4169E1;">Pipeline:</b><br><span style="font-size: 0.9rem; color: #E0E0E0;">1. Structural Check (404 Detection)</span><br><span style="font-size: 0.9rem; color: #E0E0E0;">2. Accuracy Check (API Transcription)</span></div></div>', unsafe_allow_html=True)
    
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2 = st.columns([1, 5])
@@ -172,14 +175,13 @@ elif st.session_state.step == 'ready':
             st.session_state.step = 'running'
             st.rerun()
     with col2:
-        if st.button("← Back to Upload"):
+        if st.button("← Back"):
             st.session_state.step = 'upload'
             st.rerun()
 
-# --- STEP 3: RUNNING (Accuracy Bar Fixed) ---
+# --- STEP 3: RUNNING (Real Structural Check) ---
 elif st.session_state.step == 'running':
     st.write("### Validation Running")
-    
     c1, c2 = st.columns(2)
     with c1:
         st.markdown('<div class="status-card"><b>Structural Check</b></div>', unsafe_allow_html=True)
@@ -192,48 +194,63 @@ elif st.session_state.step == 'running':
     live_results = []
     
     for i, row in st.session_state.df.iterrows():
-        # Update both progress bars
-        progress_val = (i + 1) / len(st.session_state.df)
-        p1.progress(progress_val)
-        p2.progress(progress_val)
+        # Update Structural Progress
+        progress = (i + 1) / len(st.session_state.df)
+        p1.progress(progress)
         
-        # Simulating logic
+        # REAL CHECK: Detection of 404 or Valid File
+        status, error_msg = validate_structural_integrity(row)
+        
+        if status == "✅ Pass":
+            # TRIGGER YOUR EXTERNAL API HERE
+            wer_val = 0.08 
+            acc_status = "✅ Pass"
+            p2.progress(progress)
+        else:
+            wer_val = "—"
+            acc_status = "Skipped"
+            # Accuracy progress bar still advances but reflects skipping
+            p2.progress(progress)
+
         live_results.append({
             "AUDIO ID": row['audio_id'],
-            "STRUCTURAL": "✅ Pass",
-            "WER": "0.08",
-            "ACCURACY": "✅ Pass"
+            "STRUCTURAL": f"{status} {error_msg}".strip(),
+            "WER": str(wer_val),
+            "ACCURACY": acc_status
         })
         results_placeholder.table(pd.DataFrame(live_results))
-        time.sleep(0.1)
 
     st.session_state.results = live_results
     st.session_state.step = 'report'
     st.rerun()
 
-# --- STEP 4: REPORT (Download placements fixed) ---
+# --- STEP 4: REPORT ---
 elif st.session_state.step == 'report':
-    # Download Report at Top Left
-    t_left, t_right = st.columns([1, 5])
+    # Download Report (Top Left)
+    t_left, _ = st.columns([1, 5])
     with t_left:
-        st.download_button("📥 Download Report", data="Full Report Data", file_name="report.txt")
+        st.download_button("📥 Download Report", data="Report Summary", file_name="report.txt")
 
     st.markdown("---")
     
-    # Validation Report Header with Download CSV on right
+    # Header and Download CSV (Right Aligned)
     h_left, h_right = st.columns([4, 1])
     with h_left:
         st.write("## Validation Report")
+        st.caption(f"Processed: {st.session_state.file_name}")
     with h_right:
         res_df = pd.DataFrame(st.session_state.results)
         csv = res_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download CSV", data=csv, file_name="results.csv", mime="text/csv", use_container_width=True)
+        st.download_button("📥 Download CSV", data=csv, file_name="validation_results.csv", mime="text/csv", use_container_width=True)
 
-    # Summary Metrics
+    # Dynamic Metrics
+    pass_count = res_df['STRUCTURAL'].str.contains('✅').sum()
+    acc_pass_count = res_df['ACCURACY'].str.contains('✅').sum()
+    
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total Rows", len(res_df))
-    m2.metric("Structural Pass", "100%")
-    m3.metric("Accuracy Pass", "100%")
+    m2.metric("Structural Pass", f"{(pass_count/len(res_df))*100:.0f}%")
+    m3.metric("Accuracy Pass", f"{(acc_pass_count/len(res_df))*100:.0f}%" if pass_count > 0 else "0%")
     m4.metric("Avg WER", "0.08")
 
     st.table(res_df)
