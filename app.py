@@ -1,116 +1,112 @@
 import streamlit as st
 
-# Page configuration
-st.set_page_config(page_title="Validation PSDN App", layout="wide")
+st.set_page_config(layout="wide")
 
-# Updated CSS for a clean, centered, non-overlapping layout
+# CSS to force the dark theme and handle the "Start Validation" button placement
 st.markdown("""
     <style>
-    .stApp {
-        background-color: #0E1117;
+    .stApp { background-color: #0E1117; }
+    
+    /* Center the main container */
+    .main-container {
+        max-width: 1000px;
+        margin: auto;
     }
 
-    /* Target the uploader box */
-    [data-testid="stFileUploader"] {
-        background-color: #1E1F23 !important;
-        border: 1px solid #333 !important;
-        border-radius: 12px !important;
-        padding: 50px 20px !important;
+    /* Custom Drag & Drop Box based on your SS */
+    .upload-box {
+        background-color: #1E1F23;
+        border: 2px dashed #333;
+        border-radius: 12px;
+        padding: 60px 20px;
         text-align: center;
+        color: #E0E0E0;
+        cursor: pointer;
+        transition: 0.3s;
     }
+    .upload-box:hover { border-color: #4169E1; }
+    
+    .upload-icon { font-size: 40px; color: #808495; margin-bottom: 15px; }
+    .primary-text { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+    .secondary-text { color: #808495; font-size: 14px; margin-bottom: 25px; }
+    .browse-link { color: #4169E1; text-decoration: underline; cursor: pointer; }
 
-    /* Center all internal elements vertically */
-    [data-testid="stFileUploader"] section {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 15px;
-    }
-
-    /* Style for the nested pills at the bottom of the box */
-    .pill-container {
+    /* Pill styling strictly from your reference */
+    .pill-wrapper {
         display: flex;
         justify-content: center;
+        gap: 10px;
         flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 20px;
-        width: 100%;
     }
-
-    .column-pill {
+    .pill {
         background-color: #2D2E35;
-        color: #E0E0E0;
-        padding: 6px 12px;
-        border-radius: 6px;
-        font-family: monospace;
-        font-size: 12px;
         border: 1px solid #444;
-        white-space: nowrap;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 13px;
     }
 
-    /* Styling for the help text in Validation Settings */
-    .stCaption {
-        color: #808495 !important;
-        font-size: 12px !important;
-        margin-top: -10px;
-    }
-
-    /* Start Validation Button */
-    div.stButton > button:first-child {
-        background-color: #4169E1;
-        color: white;
-        border: None;
+    /* Start Validation Button - Right Aligned Royal Blue */
+    div.stButton > button {
+        background-color: #4169E1 !important;
+        color: white !important;
+        border: none !important;
         float: right;
-        padding: 10px 25px;
-        border-radius: 8px;
+        padding: 8px 24px !important;
     }
+
+    /* Dark Expander Styling for Validation Settings */
+    .stExpander {
+        background-color: #1E1F23 !important;
+        border: 1px solid #333 !important;
+        margin-top: 20px;
+    }
+    label p { font-weight: bold !important; color: #E0E0E0 !important; font-size: 12px !important; }
+    .stCaption { color: #808495 !important; }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("NEW VALIDATION RUN")
 
-st.write("### Upload Audio Dataset CSV")
-st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
-
-# The Uploader Block
-# We use a container to wrap the uploader and our custom pills
 with st.container():
-    # Primary Uploader
-    main_csv = st.file_uploader(
-        "**Drag & drop your CSV file** or click to browse",
-        type=["csv"],
-        label_visibility="collapsed"
-    )
+    st.write("### Upload Audio Dataset CSV")
+    st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
     
-    # Custom Pills placed logically below the browse area
+    # EXACT UI FROM YOUR SCREENSHOT (But Dark)
     st.markdown("""
-        <div class="pill-container">
-            <span class="column-pill">audio_id</span>
-            <span class="column-pill">speaker_A_audio</span>
-            <span class="column-pill">speaker_B_audio</span>
-            <span class="column-pill">combined_audio</span>
-            <span class="column-pill">transcription</span>
+        <div class="upload-box">
+            <div class="upload-icon">📤</div>
+            <div class="primary-text">Drag & drop your CSV file</div>
+            <div class="secondary-text">or <span class="browse-link">click to browse</span></div>
+            <div class="pill-wrapper">
+                <div class="pill">audio_id</div>
+                <div class="pill">speaker_A_audio</div>
+                <div class="pill">speaker_B_audio</div>
+                <div class="pill">combined_audio</div>
+                <div class="pill">transcription</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
+    
+    # Hidden actual uploader to handle the file logic
+    uploaded_file = st.file_uploader("Upload", type="csv", label_visibility="collapsed")
 
-# Validation Settings
+# VALIDATION SETTINGS SECTION
 with st.expander("⚙️ Validation Settings", expanded=True):
-    v_col1, v_col2, v_col3, v_col4 = st.columns(4)
-    with v_col1:
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
         st.number_input("MIN DURATION (S)", value=1)
         st.caption("Minimum audio length")
-    with v_col2:
+    with col2:
         st.number_input("MAX DURATION (S)", value=600)
         st.caption("Maximum audio length")
-    with v_col3:
+    with col3:
         st.number_input("WER THRESHOLD", value=0.15)
         st.caption("Max WER to pass (0-1)")
-    with v_col4:
+    with col4:
         st.number_input("CONCURRENCY", value=3)
         st.caption("Parallel rows (1-10)")
 
-# Footer Button
 st.markdown("<br>", unsafe_allow_html=True)
-_, btn_col = st.columns([5, 1])
-with btn_col:
-    st.button("Start Validation", disabled=not main_csv)
+st.button("Start Validation")
