@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
-# Corrected CSS: Cleaned up duplicate tags and maintained center alignment
+# Updated CSS: Everything is centered and styled to match your reference image
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; }
@@ -18,10 +18,10 @@ st.markdown("""
         flex-direction: column;
         align-items: center;      /* Centers horizontally */
         justify-content: center;    /* Centers vertically */
-        min-height: 280px;         /* Keeps the box expanded */
+        min-height: 280px;         /* Maintains the large expanded look */
     }
 
-    /* 2. Style the 'Browse files' button inside the uploader */
+    /* 2. Style the 'Browse files' button to be dark grey with white text */
     [data-testid="stFileUploader"] button {
         background-color: #2D2E35 !important;
         border: 1px solid #444 !important;
@@ -30,16 +30,26 @@ st.markdown("""
         margin-top: 10px; 
     }
 
-    /* 3. Custom Pill styling: Pulled into the expanded box */
+    /* 3. Custom Pill styling: Positioned inside the bottom of the box */
     .pill-wrapper {
         display: flex;
         justify-content: center;
         gap: 10px;
         flex-wrap: wrap;
-        margin-top: -65px; /* Pulls pills inside the dashed area */
+        margin-top: -65px; /* Pulls pills into the expanded dashed area */
         position: relative;
         z-index: 1;
         padding-bottom: 20px;
+    }
+    
+    .pill {
+        background-color: #2D2E35;
+        border: 1px solid #444;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 13px;
+        color: #E0E0E0;
     }
 
     /* 4. Right-aligned Royal Blue Button */
@@ -47,8 +57,9 @@ st.markdown("""
         background-color: #4169E1 !important;
         color: white !important;
         border: none !important;
-        float: right;
+        float: left; /* Kept left as per your latest screenshot reference */
         padding: 8px 24px !important;
+        border-radius: 6px !important;
     }
 
     /* 5. Validation Settings Styles */
@@ -76,14 +87,14 @@ valid_csv = False
 st.write("### Upload Audio Dataset CSV")
 st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
 
-# The REAL uploader
+# The functional uploader
 main_csv = st.file_uploader(
     "Drag & drop your CSV file here", 
     type="csv", 
     label_visibility="visible"
 )
 
-# Show the required column pills - CSS pulls these into the box visually
+# The pills that appear inside the box visually
 st.markdown(f"""
     <div class="pill-wrapper">
         {"".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])}
