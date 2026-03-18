@@ -4,63 +4,80 @@ import pandas as pd
 # Page configuration
 st.set_page_config(page_title="Validation PSDN App", layout="wide")
 
-# Comprehensive CSS for unified UI and specific element alignment
+# Comprehensive CSS to match exactly the provided screenshots
 st.markdown("""
     <style>
-    /* 1. Start Validation Button - Royal Blue & Right Aligned */
+    /* 1. Start Validation Button - Right Aligned Royal Blue */
     div.stButton > button:first-child {
         background-color: #4169E1;
         color: white;
         border: None;
-        float: right; /* Forces right alignment within its column */
-    }
-    
-    /* 2. Unified Uploader Block (Dark Theme) */
-    [data-testid="stFileUploader"] {
-        background-color: #262730;
-        border: 1px solid #444;
-        border-radius: 10px;
-        padding: 40px 20px 20px 20px;
+        float: right;
     }
 
-    /* Positioning columns inside the uploader box */
-    .merged-container {
-        position: relative;
-        top: 75px; 
-        z-index: 100;
+    /* 2. Enhanced & Centered Upload Block */
+    [data-testid="stFileUploader"] {
+        background-color: #1E1F23;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 60px 40px !important; /* Increased block size */
         text-align: center;
-        pointer-events: none; /* Allows clicks to pass through to the uploader */
+    }
+    
+    /* Center the internal content of the uploader */
+    [data-testid="stFileUploader"] section {
+        justify-content: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* Column Pills integrated inside the block area */
+    .pill-container {
+        margin-top: -85px; /* Pulls pills into the visual block area */
+        margin-bottom: 25px;
+        position: relative;
+        z-index: 10;
+        text-align: center;
     }
 
     .column-pill {
         display: inline-block;
-        background-color: #31333F;
+        background-color: #2D2E35;
         color: #E0E0E0;
-        padding: 4px 12px;
-        border-radius: 5px;
-        margin: 0 4px;
+        padding: 5px 14px;
+        border-radius: 6px;
+        margin: 4px;
         font-family: monospace;
-        font-size: 12px;
-        border: 1px solid #555;
-    }
-
-    .req-text {
-        color: #808495;
         font-size: 13px;
-        margin-bottom: 8px;
+        border: 1px solid #444;
     }
 
-    /* 3. Validation Settings Styling (Matching Reference Image) */
+    .req-header {
+        color: #808495;
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+
+    /* 3. Validation Settings Styling (Matches Screenshot 4.49.23 PM) */
     .stExpander {
-        border: 1px solid #e6e9ef !important;
-        border-radius: 10px !important;
+        background-color: white !important;
+        border: 1px solid #E0E0E0 !important;
+        border-radius: 8px !important;
+        color: #333 !important;
     }
     
-    /* Helper for number input labels to look like the image */
+    /* Styling Number Input Labels and Help Text */
     label[data-testid="stWidgetLabel"] p {
-        font-size: 12px !important;
+        font-size: 13px !important;
         font-weight: bold !important;
-        color: #5f6368 !important;
+        color: #5F6368 !important;
+        text-transform: uppercase;
+    }
+    
+    div[data-testid="stMarkdownContainer"] p {
+        font-size: 12px;
+        color: #808495;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -72,10 +89,10 @@ st.title("NEW VALIDATION RUN")
 st.write("### Upload Audio Dataset CSV")
 st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
 
-# Unified internal label block
+# The Integrated Column Block (sitting inside the uploader area)
 st.markdown("""
-    <div class="merged-container">
-        <div class="req-text">Required columns:</div>
+    <div class="pill-container">
+        <div class="req-header">Required columns:</div>
         <div>
             <span class="column-pill">audio_id</span>
             <span class="column-pill">speaker_A_audio</span>
@@ -86,24 +103,36 @@ st.markdown("""
     </div>
     """, unsafe_allow_html=True)
 
-main_csv = st.file_uploader("", type=["csv"], label_visibility="collapsed")
+# Main Uploader with centered text
+main_csv = st.file_uploader(
+    "**Drag & drop your CSV file** or click to browse", 
+    type=["csv"], 
+    label_visibility="collapsed"
+)
 
-# --- VALIDATION SETTINGS (Below Upload) ---
-# Matches your Screenshot 4.49.23 PM
+# --- VALIDATION SETTINGS (Matches Screenshot Exactly) ---
+#
 with st.expander("⚙️ Validation Settings", expanded=True):
     v_col1, v_col2, v_col3, v_col4 = st.columns(4)
-    v_col1.number_input("MIN DURATION (S)", value=1, help="Minimum audio length")
-    v_col2.number_input("MAX DURATION (S)", value=600, help="Maximum audio length")
-    v_col3.number_input("WER THRESHOLD", value=0.15, help="Max WER to pass (0-1)")
-    v_col4.number_input("CONCURRENCY", value=3, help="Parallel rows (1-10)")
+    with v_col1:
+        st.number_input("MIN DURATION (S)", value=1)
+        st.caption("Minimum audio length")
+    with v_col2:
+        st.number_input("MAX DURATION (S)", value=600)
+        st.caption("Maximum audio length")
+    with v_col3:
+        st.number_input("WER THRESHOLD", value=0.15)
+        st.caption("Max WER to pass (0-1)")
+    with v_col4:
+        st.number_input("CONCURRENCY", value=3)
+        st.caption("Parallel rows (1-10)")
 
 # --- ACTION BUTTON ---
-# Using a 4:1 column split to ensure the button is at the far right
-btn_spacer, btn_col = st.columns([4, 1])
+btn_spacer, btn_col = st.columns([5, 1]) # Pushes button to the right
 with btn_col:
     run_pressed = st.button("Start Validation", disabled=not main_csv)
 
-# --- PROCESSING LOGIC ---
+# --- RUN LOGIC ---
 if main_csv and run_pressed:
     st.write("---")
-    st.success("Validation sequence initiated...")
+    st.success("Validation sequence started.")
