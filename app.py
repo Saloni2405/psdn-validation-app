@@ -3,23 +3,24 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
-# Updated CSS: Expanding the block and moving pills inside
+# Updated CSS: We style the ACTUAL streamlit uploader instead of hiding it
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; }
     
-    /* Target the actual Streamlit Upload Box and Expand it */
+   /* Target the actual Streamlit Upload Box and Expand it */
     [data-testid="stFileUploader"] section {
         background-color: #1E1F23 !important;
         border: 2px dashed #333 !important;
         border-radius: 12px !important;
-        padding: 80px 30px !important; /* Increased padding to expand the box */
+        padding: 80px 30px !important; /* Changed from 30px to 80px to expand */
         display: flex;
         flex-direction: column;
         align-items: center;
+        min-height: 250px; /* Ensures it stays large */
     }
-
-    /* Style the 'Browse files' button */
+            
+            /* Style the 'Browse files' button inside the uploader */
     [data-testid="stFileUploader"] button {
         background-color: #2D2E35 !important;
         border: 1px solid #444 !important;
@@ -27,26 +28,16 @@ st.markdown("""
         border-radius: 8px !important;
     }
 
-    /* Pulling the pills inside the box */
+    /* Custom Pill styling: Pulled into the expanded box */
     .pill-wrapper {
         display: flex;
         justify-content: center;
         gap: 10px;
         flex-wrap: wrap;
-        margin-top: -60px; /* Pulls the pills into the expanded box area */
+        margin-top: -70px; /* Pulls the pills up into the box */
         position: relative;
         z-index: 1;
-        padding-bottom: 40px;
-    }
-    
-    .pill {
-        background-color: #2D2E35;
-        border: 1px solid #444;
-        padding: 4px 12px;
-        border-radius: 4px;
-        font-family: monospace;
-        font-size: 13px;
-        color: #E0E0E0;
+        padding-bottom: 30px;
     }
 
     /* Right-aligned Royal Blue Button */
@@ -74,14 +65,14 @@ valid_csv = False
 st.write("### Upload Audio Dataset CSV")
 st.write("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
 
-# The REAL uploader
+# The REAL uploader - No more fake boxes or overlays
 main_csv = st.file_uploader(
     "Drag & drop your CSV file here", 
     type="csv", 
     label_visibility="visible"
 )
 
-# This wrapper now appears visually inside the expanded dark box above
+# Show the required column pills immediately below the uploader
 st.markdown(f"""
     <div class="pill-wrapper">
         {"".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])}
