@@ -40,7 +40,7 @@ st.markdown("""
         margin-top: -85px; /* Pulls pills into the dashed box */
         padding-bottom: 50px;
         position: relative;
-        z-index: 1;
+        z-index: 10;
     }
     .pill {
         background-color: #2D2E35;
@@ -53,22 +53,15 @@ st.markdown("""
     }
 
     /* 4. Success Preview Styling (Matching Screenshot) */
-    .preview-card {
-        background-color: #1E1F23;
-        border-radius: 10px;
-        padding: 20px;
-        margin-top: 20px;
-        border: 1px solid #333;
-    }
     .preview-header {
         display: flex;
         align-items: center;
         gap: 10px;
-        margin-bottom: 5px;
+        margin-top: 30px;
     }
     .status-icon { color: #4CAF50; font-size: 1.2rem; }
-    .row-info { color: #808495; font-size: 0.85rem; margin-left: 32px; }
-    .showing-text { color: #808495; font-size: 0.85rem; text-align: right; float: right; }
+    .row-info { color: #808495; font-size: 0.85rem; margin-left: 32px; margin-bottom: 15px; }
+    .showing-text { color: #808495; font-size: 0.85rem; float: right; }
 
     /* 5. Start Validation Button */
     div.stButton > button:first-child {
@@ -89,15 +82,16 @@ valid_csv = False
 st.write("### Upload Audio Dataset CSV")
 st.caption("Select folder containing a CSV with Google Drive links to WAV files and a transcription JSON file per row.")
 
-# --- UPLOAD AREA ---
-main_csv = st.file_uploader("Drag & drop your CSV file here", type="csv")
-
-# Column Pills (Visually nested in the box)
-st.markdown(f"""
-    <div class="pill-container">
-        {''.join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])}
-    </div>
-""", unsafe_allow_html=True)
+# --- UPLOAD AREA WRAPPED IN CONTAINER ---
+with st.container():
+    main_csv = st.file_uploader("Drag & drop your CSV file here", type="csv", label_visibility="collapsed")
+    
+    # Column Pills (Visually nested in the box)
+    st.markdown(f"""
+        <div class="pill-container">
+            {''.join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])}
+        </div>
+    """, unsafe_allow_html=True)
 
 # --- CSV PROCESSING & PREVIEW ---
 if main_csv is not None:
@@ -108,17 +102,15 @@ if main_csv is not None:
         if not missing_cols:
             valid_csv = True
             
-            # This block matches your "Untitled spreadsheet" screenshot exactly
+            # This matches your 9:58 PM screenshot header exactly
             st.markdown(f"""
-                <div style="margin-top: 25px;">
-                    <div class="preview-header">
-                        <span class="status-icon">✅</span>
-                        <span style="font-weight: 500; color: #E0E0E0;">{main_csv.name}</span>
-                        <span style="flex-grow: 1;"></span>
-                        <span class="showing-text">👁️ Showing first 2 rows</span>
-                    </div>
-                    <div class="row-info">{len(df)} rows parsed</div>
+                <div class="preview-header">
+                    <span class="status-icon">✅</span>
+                    <span style="font-weight: 500; color: #E0E0E0;">{main_csv.name}</span>
+                    <span style="flex-grow: 1;"></span>
+                    <span class="showing-text">👁️ Showing first 2 rows</span>
                 </div>
+                <div class="row-info">{len(df)} rows parsed</div>
             """, unsafe_allow_html=True)
             
             # Display the data table
