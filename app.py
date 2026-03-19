@@ -280,40 +280,47 @@ elif st.session_state.step == 4:
 # --- STEP 5: ACCURACY CHECK (ELEVENLABS) ---
 elif st.session_state.step == 5:
     st.subheader("🎯 ElevenLabs Accuracy Check")
-    api_key = st.text_input("Enter ElevenLabs API Key", type="password", value="sk_YOUR_KEY_HERE")
+    ELEVEN_LABS_API_KEY = "sk_70e256b8c48683d039dbd729a58439a9009d0a667321f226"
+
+    st.info("Using pre-configured ElevenLabs API Key. Click the button below to start.")
     
     if st.button("🚀 Start Transcription & WER"):
         progress_bar = st.progress(0)
+        status_text = st.empty() # Create a placeholder for status updates
         wer_results = []
         
-        # We loop through the dataframe loaded in Step 1
         for index, row in st.session_state.df.iterrows():
-            st.write(f"Processing: {row['audio_id']}")
+            status_text.write(f"Processing: **{row.get('audio_id', index)}**")
             
             # 1. Get Reference Text from JSON
             try:
                 gold_json = json.loads(row['transcription'])
+                # Only run accuracy if structural QC passes
+                _, decision = run_structural_qc(gold_json)
+                
+                if decision == "Reject":
+                    continue # Skip failed structural rows to save credits
+                    
                 ref_text = " ".join([s['text'] for s in gold_json])
-                ref_norm = " ".join(ref_text.lower().split()) # Basic normalization
+                ref_norm = " ".join(ref_text.lower().split())
             except: 
-                ref_norm = ""
+                continue
 
-            # 2. Get Hypothesis from ElevenLabs
-            hyp_text = transcribe_elevenlabs(row['combined_audio'], api_key)
+            # 2. Get Hypothesis from ElevenLabs (USING CORRECT VARIABLE NAME)
+            hyp_text = transcribe_elevenlabs(row['combined_audio'], ELEVEN_LABS_API_KEY)
             
             if hyp_text and ref_norm:
                 hyp_norm = " ".join(hyp_text.lower().split())
                 error = wer(ref_norm, hyp_norm)
                 
-                # Save the result into the dataframe
                 st.session_state.df.at[index, 'wer_score'] = round(error, 4)
                 wer_results.append(error)
             
             progress_bar.progress((index + 1) / len(st.session_state.df))
         
-        # Calculate final average and move to report
         if wer_results:
             st.session_state.avg_wer = sum(wer_results) / len(wer_results)
         
+        status_text.success("All processing complete!")
         st.session_state.step = 4
         st.rerun()
