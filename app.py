@@ -203,7 +203,7 @@ elif st.session_state.step == 4:
 
     st.divider()
     
-    st.balloons()
+    #st.balloons()
     st.success(f"✅ Validation process complete! The report is ready for download.")
     
     col_a, col_b = st.columns(2)
