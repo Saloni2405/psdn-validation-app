@@ -70,33 +70,85 @@ if 'results' not in st.session_state: st.session_state.results = []
 # --- STEP 1: UPLOAD ---
 if st.session_state.step == 'upload':
     st.title("NEW VALIDATION RUN")
+    
+    # Label visibility collapsed to use our custom CSS labels
     main_csv = st.file_uploader("Upload", type="csv", label_visibility="collapsed")
     
+    # 1. Sample Data & Column Pills
+    # Create a small sample CSV for users to download
+    sample_data = pd.DataFrame({
+        'audio_id': ['ID_001'],
+        'speaker_A_audio': ['https://example.com/a.wav'],
+        'speaker_B_audio': ['https://example.com/b.wav'],
+        'combined_audio': ['https://example.com/c.wav'],
+        'transcription': [
+            '{"text": "Sample JSON"}', 
+            'https://drive.google.com/file/d/sample_id/view'
+        ]
+    })
+    sample_csv = sample_data.to_csv(index=False).encode('utf-8')
+
+    st.markdown("""
+        <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: -10px;">
+            <span style="color: #808495; font-size: 13px;">Requirement: CSV with following headers</span>
+        </div>
+    """, unsafe_allow_html=True)
+
     REQUIRED_COLUMNS = ['audio_id', 'speaker_A_audio', 'speaker_B_audio', 'combined_audio', 'transcription']
     cols_html = "".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])
     st.markdown(f'<div class="pill-container">{cols_html}</div>', unsafe_allow_html=True)
+    
+    # Centered Download Link for Sample
+    st.markdown("<div style='text-align: center; margin-top: 10px;'>", unsafe_allow_html=True)
+    st.download_button(
+        label="📄 Download Sample Format",
+        data=sample_csv,
+        file_name="sample_audio_dataset.csv",
+        mime="text/csv",
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
     if main_csv is not None:
         temp_df = pd.read_csv(main_csv)
         missing_cols = [col for col in REQUIRED_COLUMNS if col not in temp_df.columns]
         
         if missing_cols:
+            # 2. EXACT BOLT-STYLE ERROR BOX (Dark Theme)
             error_msg = ", ".join(missing_cols)
+            # This creates the exact "bullet point" and header layout from your screenshot
             st.markdown(f"""
-                <div style="background-color: #1A1111; border: 1px solid #442222; border-radius: 12px; padding: 16px; margin-top: 25px; display: flex; align-items: flex-start; gap: 12px;">
-                    <div style="color: #FF4B4B; font-size: 20px; margin-top: -2px;">ⓘ</div>
-                    <div>
-                        <div style="color: #FF4B4B; font-weight: 600; font-size: 16px; margin-bottom: 4px;">Parse Errors</div>
-                        <div style="color: #D86060; font-size: 14px;">• Missing required columns: {error_msg}</div>
+                <div style="
+                    background-color: #1A1111; 
+                    border: 1px solid #442222; 
+                    border-radius: 12px; 
+                    padding: 20px; 
+                    margin-top: 25px;
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 15px;
+                ">
+                    <div style="color: #FF4B4B; font-size: 22px; line-height: 1;">ⓘ</div>
+                    <div style="flex: 1;">
+                        <div style="color: #FF4B4B; font-weight: 600; font-size: 16px; margin-bottom: 6px;">
+                            Parse Errors
+                        </div>
+                        <div style="color: #D86060; font-size: 14px; line-height: 1.5; font-family: sans-serif;">
+                            • Missing required columns: {error_msg}
+                        </div>
+                        <div style="color: #666; font-size: 12px; margin-top: 8px; font-family: monospace; letter-spacing: 0.5px;">
+                            {"".join(REQUIRED_COLUMNS)}
+                        </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
         else:
+            # Proceed if valid
             st.session_state.df = temp_df
-            st.session_state.row_count = len(temp_df)
+            st.session_state.row_count = len(st.session_state.df)
             st.session_state.file_name = main_csv.name
             
-            st.markdown("<br>### Preview", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.write("### Preview")
             st.table(st.session_state.df.head(2))
             
             if st.button("Continue to Validation →"):
