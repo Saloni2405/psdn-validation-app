@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 st.set_page_config(layout="wide", page_title="AudioQA Dataset Validation")
 
-# --- CSS: BOLT ALIGNMENT IN YOUR DARK THEME ---
+# --- CSS: BOLT ALIGNMENT & THEME ---
 st.markdown("""
   <style>
   .stApp { background-color: #0E1117; }
@@ -37,8 +37,7 @@ st.markdown("""
   </style>
   """, unsafe_allow_html=True)
 
-
-
+# --- LOGIC HELPERS ---
 def perform_structural_qc(row):
     """Full structural validation: Links + Transcription Format."""
     cols_to_check = ['speaker_A_audio', 'speaker_B_audio', 'combined_audio']
@@ -59,13 +58,9 @@ def perform_structural_qc(row):
         except:
             return False, f"Connection Error in {col.replace('_', ' ')}"
 
-    # 3. NEW: Transcription Format Check (.json or Google Drive)
+    # 3. Transcription Format Check (.json or Google Drive)
     trans = str(row['transcription']).strip()
-    
-    # Check if it's a Google Drive Link
     is_drive = "drive.google.com" in trans
-    
-    # Check if it's a JSON string
     is_json = False
     try:
         json.loads(trans)
@@ -87,41 +82,25 @@ if 'results' not in st.session_state: st.session_state.results = []
 if st.session_state.step == 'upload':
     st.title("NEW VALIDATION RUN")
     
-    # Label visibility collapsed to use our custom CSS labels
     main_csv = st.file_uploader("Upload", type="csv", label_visibility="collapsed")
     
-    # 1. Sample Data & Column Pills
-    # Create a small sample CSV for users to download
-    sample_data = pd.DataFrame({
-        'audio_id': ['ID_001'],
-        'speaker_A_audio': ['https://example.com/a.wav'],
-        'speaker_B_audio': ['https://example.com/b.wav'],
-        'combined_audio': ['https://example.com/c.wav'],
-        'transcription': [
-            '{"text": "Sample JSON"}', 
-            'https://drive.google.com/file/d/sample_id/view'
-        ]
-    })
-    sample_csv = sample_data.to_csv(index=False).encode('utf-8')
-
-    st.markdown("""
-        <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: -10px;">
-            <span style="color: #808495; font-size: 13px;">Requirement: CSV with following headers</span>
-        </div>
-    """, unsafe_allow_html=True)
-
+    # Requirement Info & Sample Download
     REQUIRED_COLUMNS = ['audio_id', 'speaker_A_audio', 'speaker_B_audio', 'combined_audio', 'transcription']
+    
+    st.markdown('<div style="text-align: center; color: #808495; font-size: 13px; margin-bottom: -10px;">Requirement: CSV with following headers</div>', unsafe_allow_html=True)
     cols_html = "".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])
     st.markdown(f'<div class="pill-container">{cols_html}</div>', unsafe_allow_html=True)
-    
-    # Centered Download Link for Sample
-    st.markdown("<div style='text-align: center; margin-top: 10px;'>", unsafe_allow_html=True)
-    st.download_button(
-        label="📄 Download Sample Format",
-        data=sample_csv,
-        file_name="sample_audio_dataset.csv",
-        mime="text/csv",
-    )
+
+    # Sample CSV for first-time users
+    sample_data = pd.DataFrame([{
+        'audio_id': 'ID_001',
+        'speaker_A_audio': 'https://example.com/a.wav',
+        'speaker_B_audio': 'https://example.com/b.wav',
+        'combined_audio': 'https://example.com/c.wav',
+        'transcription': '{"text": "Sample JSON"}'
+    }])
+    st.markdown("<div style='text-align: center; margin-top: 15px;'>", unsafe_allow_html=True)
+    st.download_button("📄 Download Sample Format", sample_data.to_csv(index=False), "sample_format.csv", "text/csv")
     st.markdown("</div>", unsafe_allow_html=True)
 
     if main_csv is not None:
@@ -129,42 +108,26 @@ if st.session_state.step == 'upload':
         missing_cols = [col for col in REQUIRED_COLUMNS if col not in temp_df.columns]
         
         if missing_cols:
-            # 2. EXACT BOLT-STYLE ERROR BOX (Dark Theme)
+            # BOLT-STYLE ERROR BOX
             error_msg = ", ".join(missing_cols)
-            # This creates the exact "bullet point" and header layout from your screenshot
+            raw_string = "".join(REQUIRED_COLUMNS)
             st.markdown(f"""
-                <div style="
-                    background-color: #1A1111; 
-                    border: 1px solid #442222; 
-                    border-radius: 12px; 
-                    padding: 20px; 
-                    margin-top: 25px;
-                    display: flex;
-                    align-items: flex-start;
-                    gap: 15px;
-                ">
+                <div style="background-color: #1A1111; border: 1px solid #442222; border-radius: 12px; padding: 20px; margin-top: 25px; display: flex; align-items: flex-start; gap: 15px;">
                     <div style="color: #FF4B4B; font-size: 22px; line-height: 1;">ⓘ</div>
                     <div style="flex: 1;">
-                        <div style="color: #FF4B4B; font-weight: 600; font-size: 16px; margin-bottom: 6px;">
-                            Parse Errors
-                        </div>
-                        <div style="color: #D86060; font-size: 14px; line-height: 1.5; font-family: sans-serif;">
-                            • Missing required columns: {error_msg}
-                        </div>
-                        <div style="color: #666; font-size: 12px; margin-top: 8px; font-family: monospace; letter-spacing: 0.5px;">
-                            {"".join(REQUIRED_COLUMNS)}
-                        </div>
+                        <div style="color: #FF4B4B; font-weight: 600; font-size: 16px; margin-bottom: 6px;">Parse Errors</div>
+                        <div style="color: #D86060; font-size: 14px; line-height: 1.5;">• Missing required columns: {error_msg}</div>
+                        <div style="color: #444; font-size: 11px; margin-top: 10px; font-family: monospace;">{raw_string}</div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
+            st.stop() # CRITICAL: Stop app if CSV is wrong
         else:
-            # Proceed if valid
             st.session_state.df = temp_df
-            st.session_state.row_count = len(st.session_state.df)
+            st.session_state.row_count = len(temp_df)
             st.session_state.file_name = main_csv.name
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.write("### Preview")
+            st.markdown("<br>### Preview", unsafe_allow_html=True)
             st.table(st.session_state.df.head(2))
             
             if st.button("Continue to Validation →"):
@@ -199,13 +162,8 @@ elif st.session_state.step == 'running':
         pct = (i + 1) / st.session_state.row_count
         p1.progress(pct)
         
-        # TRIGGER THE QC LOGIC
         is_ok, err_msg = perform_structural_qc(row)
-        
-        if is_ok:
-            wer, acc = "0.08", "✅ Pass"
-        else:
-            wer, acc = "—", "Skipped"
+        wer, acc = ("0.08", "✅ Pass") if is_ok else ("—", "Skipped")
             
         results.append({
             "AUDIO ID": row['audio_id'],
