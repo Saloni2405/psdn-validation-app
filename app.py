@@ -82,54 +82,59 @@ if 'results' not in st.session_state: st.session_state.results = []
 if st.session_state.step == 'upload':
     st.title("NEW VALIDATION RUN")
     
-    main_csv = st.file_uploader("Upload", type="csv", label_visibility="collapsed")
-    
-    # Requirement Info & Sample Download
-    REQUIRED_COLUMNS = ['audio_id', 'speaker_A_audio', 'speaker_B_audio', 'combined_audio', 'transcription']
-    
-    st.markdown('<div style="text-align: center; color: #808495; font-size: 13px; margin-bottom: -10px;">Requirement: CSV with following headers</div>', unsafe_allow_html=True)
-    cols_html = "".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])
-    st.markdown(f'<div class="pill-container">{cols_html}</div>', unsafe_allow_html=True)
+    # Use a container to keep everything tight
+    with st.container():
+        # 1. The Uploader
+        main_csv = st.file_uploader("Upload", type="csv", label_visibility="collapsed")
+        
+        # 2. Instruction Pills
+        REQUIRED_COLUMNS = ['audio_id', 'speaker_A_audio', 'speaker_B_audio', 'combined_audio', 'transcription']
+        st.markdown('<div style="text-align: center; color: #808495; font-size: 13px; margin-top: 15px;">Requirement: CSV with following headers</div>', unsafe_allow_html=True)
+        cols_html = "".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])
+        st.markdown(f'<div class="pill-container">{cols_html}</div>', unsafe_allow_html=True)
 
-    # Sample CSV for first-time users
-    sample_data = pd.DataFrame([{
-        'audio_id': 'ID_001',
-        'speaker_A_audio': 'https://example.com/a.wav',
-        'speaker_B_audio': 'https://example.com/b.wav',
-        'combined_audio': 'https://example.com/c.wav',
-        'transcription': '{"text": "Sample JSON"}'
-    }])
-    st.markdown("<div style='text-align: center; margin-top: 15px;'>", unsafe_allow_html=True)
-    st.download_button("📄 Download Sample Format", sample_data.to_csv(index=False), "sample_format.csv", "text/csv")
-    st.markdown("</div>", unsafe_allow_html=True)
+        # 3. Sample Download
+        sample_df = pd.DataFrame([["ID_001", "url_a", "url_b", "url_c", "json_or_drive"]], columns=REQUIRED_COLUMNS)
+        st.markdown("<div style='text-align: center; margin-top: 15px;'>", unsafe_allow_html=True)
+        st.download_button("📄 Download Sample Format", sample_df.to_csv(index=False), "sample.csv", "text/csv")
+        st.markdown("</div>", unsafe_allow_html=True)
 
+    # 4. THE VALIDATION GATEKEEPER
     if main_csv is not None:
-        temp_df = pd.read_csv(main_csv)
-        missing_cols = [col for col in REQUIRED_COLUMNS if col not in temp_df.columns]
+        # Load data immediately
+        df = pd.read_csv(main_csv)
+        missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
         
         if missing_cols:
-            # BOLT-STYLE ERROR BOX
+            # THIS IS THE PART THAT WAS MISSING:
+            # We clear the screen and show ONLY your custom error box
             error_msg = ", ".join(missing_cols)
             raw_string = "".join(REQUIRED_COLUMNS)
+            
             st.markdown(f"""
-                <div style="background-color: #1A1111; border: 1px solid #442222; border-radius: 12px; padding: 20px; margin-top: 25px; display: flex; align-items: flex-start; gap: 15px;">
-                    <div style="color: #FF4B4B; font-size: 22px; line-height: 1;">ⓘ</div>
+                <div style="background-color: #1A1111; border: 1px solid #442222; border-radius: 12px; padding: 24px; margin-top: 30px; display: flex; align-items: flex-start; gap: 15px;">
+                    <div style="color: #FF4B4B; font-size: 24px; line-height: 1;">ⓘ</div>
                     <div style="flex: 1;">
-                        <div style="color: #FF4B4B; font-weight: 600; font-size: 16px; margin-bottom: 6px;">Parse Errors</div>
-                        <div style="color: #D86060; font-size: 14px; line-height: 1.5;">• Missing required columns: {error_msg}</div>
-                        <div style="color: #444; font-size: 11px; margin-top: 10px; font-family: monospace;">{raw_string}</div>
+                        <div style="color: #FF4B4B; font-weight: 600; font-size: 18px; margin-bottom: 8px;">Parse Errors</div>
+                        <div style="color: #D86060; font-size: 14px; line-height: 1.6;">
+                            • Missing required columns: {error_msg}
+                        </div>
+                        <div style="color: #444; font-size: 11px; margin-top: 15px; font-family: monospace; word-break: break-all;">
+                            {raw_string}
+                        </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
-            st.stop() # CRITICAL: Stop app if CSV is wrong
+            
+            # This stops Streamlit from showing that default table you see in your screenshot
+            st.stop() 
+        
         else:
-            st.session_state.df = temp_df
-            st.session_state.row_count = len(temp_df)
+            # Success Path
+            st.session_state.df = df
             st.session_state.file_name = main_csv.name
-            
-            st.markdown("<br>### Preview", unsafe_allow_html=True)
-            st.table(st.session_state.df.head(2))
-            
+            st.success("File recognized! Check the preview below.")
+            st.table(df.head(3))
             if st.button("Continue to Validation →"):
                 st.session_state.step = 'ready'
                 st.rerun()
