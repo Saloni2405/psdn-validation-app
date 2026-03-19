@@ -1,113 +1,83 @@
 import streamlit as st
 import pandas as pd
 
-# --- 1. CORE LOGIC ---
-def to_seconds(ts):
-    if not ts: return 0
-    try:
-        parts = list(map(float, str(ts).strip().split(':')))
-        if len(parts) == 3: return parts[0] * 3600 + parts[1] * 60 + parts[2]
-        if len(parts) == 2: return parts[0] * 60 + parts[1]
-        return float(parts[0])
-    except: return 0
-
-def run_structural_qc(segments):
-    REQUIRED_KEYS = {"speaker", "start", "end", "text"}
-    stats = {"format_violations": [], "timestamp_violations": [], "zero_duration_segments": [], "overlap_occurrences": []}
+# --- DIALOG FOR ROW DETAILS ---
+@st.dialog("Row Details")
+def show_details(row_data, row_index):
+    st.write(f"### {row_data.get('audio_id', f'Row {row_index}')}")
     
-    for idx, seg in enumerate(segments):
-        current_keys = set(seg.keys())
-        if not REQUIRED_KEYS.issubset(current_keys):
-            stats["format_violations"].append({"index": idx, "error": "Missing required columns"})
+    st.markdown("---")
+    st.write("**SPEAKER A AUDIO**")
+    st.caption(f"🔗 {row_data.get('speaker_A_audio', 'N/A')}")
     
-    # Simple rejection logic for UI testing
-    decision = "Reject" if len(stats["format_violations"]) > 0 else "Accept"
-    return stats, decision
-
-# --- 2. PAGE CONFIG ---
-st.set_page_config(page_title="AudioQA Pipeline", layout="wide")
-
-if 'step' not in st.session_state:
-    st.session_state.step = 1
-
-st.markdown("""
-    <style>
-    .stButton>button { background-color: #2b6cb0; color: white; border-radius: 8px; width: 100%; }
-    .param-box { background-color: #ffffff; color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; }
-    .stepper-active { color: #2b6cb0; font-weight: bold; border-bottom: 3px solid #2b6cb0; text-align: center;}
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- HEADER & STEPPER ---
-st.title("⚡ AudioQA")
-s1, s2, s3, s4 = st.columns(4)
-with s1: st.markdown(f"<div class='{'stepper-active' if st.session_state.step == 1 else ''}'>Upload</div>", unsafe_allow_html=True)
-with s2: st.markdown(f"<div class='{'stepper-active' if st.session_state.step == 2 else ''}'>Structural Check</div>", unsafe_allow_html=True)
-with s3: st.markdown(f"<div class='{'stepper-active' if st.session_state.step == 3 else ''}'>Accuracy Check</div>", unsafe_allow_html=True)
-with s4: st.markdown("<div>Report</div>", unsafe_allow_html=True)
-st.divider()
-
-# --- PAGE 1: UPLOAD ---
-if st.session_state.step == 1:
-    st.header("New Validation Run")
-    with st.container(border=True):
-        uploaded_file = st.file_uploader("Drag and drop CSV file here", type=["csv"])
-        if uploaded_file:
-            st.session_state.df = pd.read_csv(uploaded_file)
-            st.session_state.filename = uploaded_file.name
-        
-        st.write("**Required Parameters:**")
-        p_cols = st.columns(5)
-        for col, p in zip(p_cols, ["audio_id", "speaker_A_audio", "speaker_B_audio", "combined_audio", "transcription"]):
-            col.markdown(f"<div class='param-box'>{p}</div>", unsafe_allow_html=True)
-        st.error("Parse Errors • Missing required columns: audio_id, speaker_A_audio, speaker_B_audio, combined_audio, transcription")
-
-    if st.button("Continue to validation →"):
-        if 'df' in st.session_state:
-            st.session_state.step = 2
-            st.rerun()
-
-# --- PAGE 2: READY TO VALIDATE ---
-elif st.session_state.step == 2:
-    st.subheader("Ready to Validate")
-    st.write(f"{len(st.session_state.df)} rows loaded from {st.session_state.get('filename', 'file')}")
+    st.write("**SPEAKER B AUDIO**")
+    st.caption(f"🔗 {row_data.get('speaker_B_audio', 'N/A')}")
     
-    with st.container(border=True):
-        st.markdown("⚙️ **Validation Settings**")
-        v1, v2, v3, v4 = st.columns(4)
-        v1.number_input("MIN DURATION (S)", value=1)
-        v2.number_input("MAX DURATION (S)", value=600)
-        v3.number_input("WER THRESHOLD", value=0.15)
-        v4.number_input("CONCURRENCY", value=3)
-
-    with st.container(border=True):
-        c1, c2 = st.columns([3, 1])
-        c1.info("**Pipeline will run:** 1. Structural check | 2. Accuracy check")
-        if c2.button("⚡ Start Validation"):
-            results, decision = run_structural_qc(st.session_state.df.to_dict(orient='records'))
-            st.session_state.results = results
-            st.session_state.decision = decision
-            st.session_state.step = 3
-            st.rerun()
-
-# --- PAGE 3: REPORT ---
-elif st.session_state.step == 3:
-    st.subheader("Validation Report")
+    st.write("**COMBINED AUDIO**")
+    st.caption(f"🔗 {row_data.get('combined_audio', 'N/A')}")
     
-    # Dashboard Cards
-    t1, t2, t3, t4 = st.columns(4)
-    t1.metric("Total Rows", len(st.session_state.df))
-    t2.metric("Structural Pass", "0.0%" if st.session_state.decision == "Reject" else "100%")
-    t3.metric("Accuracy Pass", "N/A")
-    t4.metric("Avg WER", "N/A")
+    st.write("**TRANSCRIPTION JSON**")
+    st.code(row_data.get('transcription', '{}'), language='json')
+    
+    st.markdown("---")
+    st.markdown("#### 🎙️ Structural Validation <span style='float:right;' class='badge-fail'>Fail</span>", unsafe_allow_html=True)
+    
+    # Specific error messages based on your screenshot
+    st.error("""
+    - Speaker A audio: Invalid WAV header: expected 'RIFF', got 'ID3'
+    - Speaker B audio: Invalid WAV header: expected 'RIFF', got 'ID3'
+    - Combined audio: Invalid WAV header: expected 'RIFF', got 'ID3'
+    - Transcription: Fetch error: Invalid URL
+    """)
+    
+    st.markdown("#### 📈 Accuracy Validation <span style='float:right;' class='badge-skipped'>Skipped</span>", unsafe_allow_html=True)
+    st.info("Skipped – structural check failed")
+
+# --- UPDATED STEP 3 LOGIC ---
+if st.session_state.step == 3:
+    # (Header and Metrics remain the same as previous code)
+    h_col1, h_col2 = st.columns([3, 1])
+    with h_col1:
+        st.subheader("Validation Report")
+        st.write(f"{st.session_state.get('filename', 'File')} — {len(st.session_state.df)} rows processed")
+    with h_col2:
+        st.button("📥 Download CSV")
+
+    # 1. Dashboard Metrics
+    m1, m2, m3, m4 = st.columns(4)
+    # ... (metric-card HTML as provided before)
 
     st.write("### Detailed Results")
+    
+    # Header for the table
+    t_h1, t_h2, t_h3, t_h4 = st.columns([1, 3, 1, 1])
+    t_h1.caption("AUDIO ID")
+    t_h2.caption("STRUCTURAL")
+    t_h3.caption("WER SCORE")
+    t_h4.caption("ACCURACY")
+
+    # 2. Detailed Results List with Modal Trigger
     for index, row in st.session_state.df.iterrows():
         with st.container(border=True):
-            col_a, col_b, col_c = st.columns([1, 4, 1])
-            col_a.write(f"**{row.get('audio_id', index)}**")
-            col_b.error("🔴 Fail: Speaker A audio: Invalid WAV header: expected 'RIFF', got 'ID3'")
-            col_c.info("Skipped")
+            r_col1, r_col2, r_col3, r_col4, r_col5 = st.columns([1, 2, 1, 1, 0.5])
+            
+            with r_col1:
+                st.write(f"**{row.get('audio_id', f'test_{index}')}**")
+            
+            with r_col2:
+                st.markdown('<span class="badge-fail">ⓧ Fail</span>', unsafe_allow_html=True)
+                st.caption("Multiple structural errors detected...")
+            
+            with r_col3:
+                st.write("--")
+                
+            with r_col4:
+                st.markdown('<span class="badge-skipped">Skipped</span>', unsafe_allow_html=True)
+                
+            with r_col5:
+                # This button triggers the Modal
+                if st.button("ⓘ", key=f"btn_{index}"):
+                    show_details(row, index)
 
     if st.button("← Back to Settings"):
         st.session_state.step = 2
