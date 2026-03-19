@@ -3,6 +3,36 @@ import pandas as pd
 import json
 import os
 
+import re
+import requests
+from jiwer import wer
+
+# Add this helper function below your other functions (like to_seconds)
+def extract_drive_direct_link(url):
+    """Converts a standard Google Drive sharing link into a direct download link."""
+    # This regex looks for the File ID in the URL
+    match = re.search(r'[-\w]{25,}', str(url))
+    if match:
+        return f"https://drive.google.com/uc?export=download&id={match.group(0)}"
+    return url
+
+def transcribe_elevenlabs(audio_url, api_key):
+    """Helper to call ElevenLabs API"""
+    url = "https://api.elevenlabs.io/v1/speech-to-text"
+    headers = {"xi-api-key": api_key}
+    direct_link = extract_drive_direct_link(audio_url)
+    
+    data = {"model_id": "scribe_v2", "language_code": "bn", "diarize": "true"}
+    try:
+        response = requests.get(direct_link, timeout=30)
+        files = {"file": ("audio.mp3", response.content, "audio/mpeg")}
+        resp = requests.post(url, headers=headers, data=data, files=files)
+        if resp.status_code == 200:
+            words = resp.json().get("words", [])
+            return " ".join([w["text"] for w in words])
+        return None
+    except:
+        return None
 # --- 1. CORE VALIDATION LOGIC ---
 REQUIRED_KEYS = {"start", "end", "speaker", "text"}
 
@@ -134,11 +164,33 @@ elif st.session_state.step == 3:
         st.write("###")
         st.download_button("📥 Download CSV", data=st.session_state.df.to_csv().encode('utf-8'), file_name="results.csv")
 
+    # --- 1. PRE-CALCULATE PASS COUNT FOR METRICS ---
+    temp_pass_count = 0
+    total_rows = len(st.session_state.df)
+    
+    # We do a quick pass to count passes for the top metric cards
+    for idx, row in st.session_state.df.iterrows():
+        try:
+            segs = json.loads(row['transcription'])
+            _, decision = run_structural_qc(segs)
+            if decision == "Accept":
+                temp_pass_count += 1
+        except:
+            pass
+    
+    # Store in session state for Step 4 to use
+    st.session_state.pass_count = temp_pass_count
+
+    # --- 2. METRIC CARDS ---
     m1, m2, m3, m4 = st.columns(4)
-    with m1: st.markdown(f'<div class="metric-card"><div class="metric-label">📊 TOTAL ROWS</div><div class="metric-value">{len(st.session_state.df)}</div></div>', unsafe_allow_html=True)
-    with m2: st.markdown('<div class="metric-card"><div class="metric-label">✅ STRUCTURAL PASS</div><div class="metric-value">Pending</div></div>', unsafe_allow_html=True)
-    with m3: st.markdown('<div class="metric-card"><div class="metric-label">📈 ACCURACY PASS</div><div class="metric-value">N/A</div></div>', unsafe_allow_html=True)
-    with m4: st.markdown('<div class="metric-card"><div class="metric-label">🎯 AVG WER</div><div class="metric-value">N/A</div></div>', unsafe_allow_html=True)
+    with m1: 
+        st.markdown(f'<div class="metric-card"><div class="metric-label">📊 TOTAL ROWS</div><div class="metric-value">{total_rows}</div></div>', unsafe_allow_html=True)
+    with m2: 
+        st.markdown(f'<div class="metric-card"><div class="metric-label">✅ STRUCTURAL PASS</div><div class="metric-value">{temp_pass_count}</div></div>', unsafe_allow_html=True)
+    with m3: 
+        st.markdown('<div class="metric-card"><div class="metric-label">📈 ACCURACY PASS</div><div class="metric-value">Pending</div></div>', unsafe_allow_html=True)
+    with m4: 
+        st.markdown('<div class="metric-card"><div class="metric-label">🎯 AVG WER</div><div class="metric-value">N/A</div></div>', unsafe_allow_html=True)
 
     st.write("### Detailed Results")
     t_h1, t_h2, t_h3, t_h4, t_h5 = st.columns([1, 2, 1, 1, 0.5])
@@ -147,6 +199,7 @@ elif st.session_state.step == 3:
     t_h3.caption("WER SCORE")
     t_h4.caption("ACCURACY")
 
+    # --- 3. DETAILED ROWS LIST ---
     for index, row in st.session_state.df.iterrows():
         try:
             segments = json.loads(row['transcription'])
@@ -164,21 +217,23 @@ elif st.session_state.step == 3:
                 r4.markdown('<span class="badge-skipped">Skipped</span>', unsafe_allow_html=True)
             else:
                 r2.markdown('<span class="badge-pass">✔ Pass</span>', unsafe_allow_html=True)
-                r3.write("0.12")
-                r4.markdown('<span class="badge-pass">Pass</span>', unsafe_allow_html=True)
+                # Show "Pending" for WER until Step 5 is run
+                r3.write("Pending")
+                r4.markdown('<span class="badge-pass">Verified</span>', unsafe_allow_html=True)
             
             if r5.button("ⓘ", key=f"btn_{index}"):
                 show_details(row, results)
 
-    # ... inside Step 3 ...
-    col_back, col_next = st.columns([1, 1])
+    # --- 4. NAVIGATION BUTTONS ---
+    st.markdown("---")
+    col_back, col_next = st.columns([1, 1]) 
     with col_back:
         if st.button("← Back to Settings"):
             st.session_state.step = 2
             st.rerun()
     with col_next:
-        if st.button("Complete & Generate Report →"):
-            st.session_state.step = 4
+        if st.button("Complete & Run Accuracy Check →"):
+            st.session_state.step = 5
             st.rerun()
 
 # --- STEP 4: FINAL REPORT DASHBOARD (ADD TO VERY BOTTOM) ---
@@ -198,8 +253,11 @@ elif st.session_state.step == 4:
         st.markdown(f'''<div class="metric-card"><div class="metric-label">✅ Structural Pass</div><div class="metric-value">{pass_rate:.1f}%</div></div>''', unsafe_allow_html=True)
     with m3:
         st.markdown(f'''<div class="metric-card"><div class="metric-label">📈 Accuracy Pass</div><div class="metric-value">{passed} Rows</div></div>''', unsafe_allow_html=True)
+    # Inside Step 4 metrics
     with m4:
-        st.markdown(f'''<div class="metric-card"><div class="metric-label">🎯 Avg WER</div><div class="metric-value">0.12</div></div>''', unsafe_allow_html=True)
+    # Use the actual average calculated in Step 5
+        current_wer = st.session_state.get('avg_wer', 0.0)
+        st.markdown(f'''<div class="metric-card"><div class="metric-label">🎯 Avg WER</div><div class="metric-value">{current_wer:.4f}</div></div>''', unsafe_allow_html=True)
 
     st.divider()
     
@@ -218,3 +276,44 @@ elif st.session_state.step == 4:
             st.session_state.df = None
             st.session_state.pass_count = 0
             st.rerun()
+
+# --- STEP 5: ACCURACY CHECK (ELEVENLABS) ---
+elif st.session_state.step == 5:
+    st.subheader("🎯 ElevenLabs Accuracy Check")
+    api_key = st.text_input("Enter ElevenLabs API Key", type="password", value="sk_YOUR_KEY_HERE")
+    
+    if st.button("🚀 Start Transcription & WER"):
+        progress_bar = st.progress(0)
+        wer_results = []
+        
+        # We loop through the dataframe loaded in Step 1
+        for index, row in st.session_state.df.iterrows():
+            st.write(f"Processing: {row['audio_id']}")
+            
+            # 1. Get Reference Text from JSON
+            try:
+                gold_json = json.loads(row['transcription'])
+                ref_text = " ".join([s['text'] for s in gold_json])
+                ref_norm = " ".join(ref_text.lower().split()) # Basic normalization
+            except: 
+                ref_norm = ""
+
+            # 2. Get Hypothesis from ElevenLabs
+            hyp_text = transcribe_elevenlabs(row['combined_audio'], api_key)
+            
+            if hyp_text and ref_norm:
+                hyp_norm = " ".join(hyp_text.lower().split())
+                error = wer(ref_norm, hyp_norm)
+                
+                # Save the result into the dataframe
+                st.session_state.df.at[index, 'wer_score'] = round(error, 4)
+                wer_results.append(error)
+            
+            progress_bar.progress((index + 1) / len(st.session_state.df))
+        
+        # Calculate final average and move to report
+        if wer_results:
+            st.session_state.avg_wer = sum(wer_results) / len(wer_results)
+        
+        st.session_state.step = 4
+        st.rerun()
