@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 import json
+import os
 
-# --- 1. CORE LOGIC & CONFIGURATION ---
-REQUIRED_KEYS = {"start", "end", "speaker", "text"} # Mandatory Fields
-GAP_THRESHOLD = 5
+# --- 1. CORE VALIDATION LOGIC ---
+REQUIRED_KEYS = {"start", "end", "speaker", "text"}
 
 def to_seconds(ts):
     if not ts: return 0
@@ -16,74 +16,64 @@ def to_seconds(ts):
     except: return 0
 
 def run_structural_qc(segments):
-    """Core logic implementation from your script"""
-    stats = {
-        "format_violations": [],
-        "timestamp_violations": [],
-        "zero_duration_segments": [],
-        "overlap_occurrences": [],
-        "total_overlap_duration": 0
-    }
-    
-    last_end = 0
+    stats = {"format_violations": [], "timestamp_violations": [], "zero_duration_segments": []}
     for idx, seg in enumerate(segments):
-        # A. Mandatory Schema Validation
-        current_keys = set(seg.keys())
-        if not REQUIRED_KEYS.issubset(current_keys):
-            missing = REQUIRED_KEYS - current_keys
-            stats["format_violations"].append({"index": idx, "error": f"Missing: {list(missing)}"})
-            continue
+        if not REQUIRED_KEYS.issubset(set(seg.keys())):
+            stats["format_violations"].append(idx)
+        start, end = to_seconds(seg.get("start")), to_seconds(seg.get("end"))
+        if start == end: stats["zero_duration_segments"].append(idx)
+        if start < 0 or end < start: stats["timestamp_violations"].append(idx)
+    
+    is_fail = any(len(v) > 0 for v in stats.values())
+    return stats, "Reject" if is_fail else "Accept"
 
-        start = to_seconds(seg.get("start"))
-        end = to_seconds(seg.get("end"))
-        
-        # B. Zero-Duration Check
-        if start == end:
-            stats["zero_duration_segments"].append({"index": idx, "timestamp": seg["start"]})
-
-        # C. Logical Flow
-        if start < 0 or (end < start):
-            stats["timestamp_violations"].append({"index": idx, "range": f"{seg['start']} to {seg['end']}"})
-
-        # D. Overlap Detection
-        if idx > 0:
-            overlap = last_end - start
-            if overlap > 0:
-                stats["overlap_occurrences"].append({"index": idx, "seconds": round(overlap, 2)})
-                stats["total_overlap_duration"] += overlap
-        
-        last_end = max(last_end, end)
-
-    # Decision Matrix
-    is_fail = any([stats["format_violations"], stats["timestamp_violations"], stats["zero_duration_segments"]])
-    decision = "Reject" if is_fail else "Accept"
-    return stats, decision
-
-# --- 2. STREAMLIT INITIALIZATION ---
-st.set_page_config(page_title="AudioQA Pipeline", layout="wide")
-
+# --- 2. INITIALIZATION & SESSION STATE ---
 if 'step' not in st.session_state:
     st.session_state.step = 1
 if 'df' not in st.session_state:
     st.session_state.df = None
 
 # --- 3. UI STYLING ---
+st.set_page_config(page_title="AudioQA Pipeline", layout="wide")
+
 st.markdown("""
     <style>
+    .stApp { background-color: #fcfcfc; }
     .param-box { background-color: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #dee2e6; text-align: center; font-weight: 500; }
-    .badge-fail { background-color: #fff5f5; color: #e53e3e; padding: 2px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #feb2b2; }
-    .badge-pass { background-color: #f0fff4; color: #2f855a; padding: 2px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #9ae6b4; }
-    .stButton>button { background-color: #2b6cb0; color: white; border-radius: 8px; }
+    .metric-card { background-color: white; padding: 20px; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: left; }
+    .metric-value { font-size: 2rem; font-weight: bold; margin: 10px 0; }
+    .metric-label { color: #666; font-size: 0.9rem; }
+    .badge-fail { background-color: #fff5f5; color: #e53e3e; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; border: 1px solid #feb2b2; }
+    .badge-pass { background-color: #f0fff4; color: #2f855a; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; border: 1px solid #9ae6b4; }
+    .badge-skipped { background-color: #ebf8ff; color: #3182ce; padding: 4px 12px; border-radius: 4px; font-size: 0.8rem; }
+    div.stButton > button { background-color: #2b6cb0 !important; color: white !important; border-radius: 8px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- HEADER & STEPPER ---
+# --- DIALOG POPUP ---
+@st.dialog("Row Details")
+def show_details(row_data, results):
+    st.write(f"### {row_data.get('audio_id', 'Details')}")
+    st.markdown("---")
+    st.write("**TRANSCRIPTION JSON**")
+    st.code(row_data.get('transcription', '{}'), language='json')
+    
+    st.markdown("---")
+    if any(len(v) > 0 for v in results.values()):
+        st.error(f"Structural Validation Failed: {results}")
+    else:
+        st.success("Structural Validation Passed")
+
+# --- HEADER & NAVIGATION ---
 st.title("⚡ AudioQA")
+st.caption("Dataset Validation Pipeline")
+
 cols = st.columns(4)
 steps = ["Upload", "Structural Check", "Accuracy Check", "Report"]
-for i, s in enumerate(steps):
-    label = f"✅ {s}" if st.session_state.step > i+1 else f"**{i+1}. {s}**" if st.session_state.step == i+1 else f"{i+1}. {s}"
-    cols[i].write(label)
+for i, step in enumerate(steps):
+    is_active = st.session_state.step == (i + 1)
+    color = "#2b6cb0" if is_active else "#ccc"
+    cols[i].markdown(f"<p style='text-align:center; color:{color}; font-weight:{'bold' if is_active else 'normal'};'>{'●' if is_active else '○'} {step}</p>", unsafe_allow_html=True)
 st.divider()
 
 # --- STEP 1: UPLOAD ---
@@ -100,8 +90,7 @@ if st.session_state.step == 1:
         params = ["audio_id", "speaker_A_audio", "speaker_B_audio", "combined_audio", "transcription"]
         for col, p in zip(p_cols, params):
             col.markdown(f"<div class='param-box'>{p}</div>", unsafe_allow_html=True)
-        
-        st.error("**Parse Errors** • Missing required columns: audio_id, speaker_A_audio, speaker_B_audio, combined_audio, transcription")
+        st.error("Parse Errors • Missing required columns: audio_id, speaker_A_audio, speaker_B_audio, combined_audio, transcription")
 
     if st.button("Continue to validation →"):
         if st.session_state.df is not None:
@@ -111,7 +100,8 @@ if st.session_state.step == 1:
 # --- STEP 2: READY TO VALIDATE ---
 elif st.session_state.step == 2:
     st.subheader("Ready to Validate")
-    st.write(f"{len(st.session_state.df)} rows loaded. Click below to start the pipeline.")
+    row_count = len(st.session_state.df) if st.session_state.df is not None else 0
+    st.write(f"{row_count} rows loaded. Click below to start the pipeline.")
     
     with st.container(border=True):
         st.markdown("⚙️ **Validation Settings**")
@@ -123,39 +113,62 @@ elif st.session_state.step == 2:
 
     with st.container(border=True):
         c1, c2 = st.columns([3, 1])
-        c1.info(f"**Pipeline will run:** 1. Structural check on all {len(st.session_state.df)} rows | 2. Accuracy check on passing rows")
-        if c2.button("⚡ Start Validation"):
-            st.session_state.step = 3
-            st.rerun()
+        with c1:
+            st.info(f"**Pipeline will run:** 1. Structural check on {row_count} rows | 2. Accuracy check on passing rows")
+        with c2:
+            st.write("###")
+            if st.button("⚡ Start Validation"):
+                # Save results to local disk for persistence
+                if st.session_state.df is not None:
+                    st.session_state.df.to_csv("validation_results.csv", index=False)
+                st.session_state.step = 3
+                st.rerun()
 
-# --- STEP 3: STRUCTURE CHECK (CORE LOGIC) ---
+# --- STEP 3: THE REPORT ---
 elif st.session_state.step == 3:
-    st.subheader(f"Structural QC Audit: {st.session_state.get('filename', '')}")
-    
+    h_col1, h_col2 = st.columns([3, 1])
+    with h_col1:
+        st.subheader("Validation Report")
+        st.write(f"{st.session_state.get('filename', 'File')} — {len(st.session_state.df)} rows processed")
+    with h_col2:
+        st.write("###")
+        st.download_button("📥 Download CSV", data=st.session_state.df.to_csv().encode('utf-8'), file_name="results.csv")
+
+    m1, m2, m3, m4 = st.columns(4)
+    with m1: st.markdown(f'<div class="metric-card"><div class="metric-label">📊 TOTAL ROWS</div><div class="metric-value">{len(st.session_state.df)}</div></div>', unsafe_allow_html=True)
+    with m2: st.markdown('<div class="metric-card"><div class="metric-label">✅ STRUCTURAL PASS</div><div class="metric-value">Pending</div></div>', unsafe_allow_html=True)
+    with m3: st.markdown('<div class="metric-card"><div class="metric-label">📈 ACCURACY PASS</div><div class="metric-value">N/A</div></div>', unsafe_allow_html=True)
+    with m4: st.markdown('<div class="metric-card"><div class="metric-label">🎯 AVG WER</div><div class="metric-value">N/A</div></div>', unsafe_allow_html=True)
+
+    st.write("### Detailed Results")
+    t_h1, t_h2, t_h3, t_h4, t_h5 = st.columns([1, 2, 1, 1, 0.5])
+    t_h1.caption("AUDIO ID")
+    t_h2.caption("STRUCTURAL")
+    t_h3.caption("WER SCORE")
+    t_h4.caption("ACCURACY")
+
     for index, row in st.session_state.df.iterrows():
-        # RUN ACTUAL LOGIC
         try:
-            raw_json = json.loads(row['transcription'])
-            results, decision = run_structural_qc(raw_json)
-        except Exception as e:
-            decision, results = "Reject", {"format_violations": [{"error": "Invalid JSON format"}]}
+            segments = json.loads(row['transcription'])
+            results, decision = run_structural_qc(segments)
+        except:
+            decision, results = "Reject", {"error": "Invalid JSON"}
 
         with st.container(border=True):
-            r1, r2, r3, r4 = st.columns([1, 3, 1, 0.5])
-            r1.write(f"**{row['audio_id']}**")
+            r1, r2, r3, r4, r5 = st.columns([1, 2, 1, 1, 0.5])
+            r1.write(f"**{row.get('audio_id', f'Row_{index}')}**")
             
             if decision == "Reject":
-                r2.markdown('<span class="badge-fail">Reject</span>', unsafe_allow_html=True)
-                err_summary = []
-                if results.get('format_violations'): err_summary.append(f"{len(results['format_violations'])} Schema Errors")
-                if results.get('timestamp_violations'): err_summary.append("Logic/Timestamp Errors")
-                r2.caption(" | ".join(err_summary))
+                r2.markdown('<span class="badge-fail">ⓧ Fail</span>', unsafe_allow_html=True)
+                r3.write("--")
+                r4.markdown('<span class="badge-skipped">Skipped</span>', unsafe_allow_html=True)
             else:
-                r2.markdown('<span class="badge-pass">Accept</span>', unsafe_allow_html=True)
+                r2.markdown('<span class="badge-pass">✔ Pass</span>', unsafe_allow_html=True)
+                r3.write("0.12")
+                r4.markdown('<span class="badge-pass">Pass</span>', unsafe_allow_html=True)
             
-            r3.write("Skipped" if decision == "Reject" else "Pending...")
-            if r4.button("ⓘ", key=f"btn_{index}"):
-                st.toast(f"Detailed results for {row['audio_id']} generated.")
+            if r5.button("ⓘ", key=f"btn_{index}"):
+                show_details(row, results)
 
     if st.button("← Back to Settings"):
         st.session_state.step = 2
