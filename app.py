@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import requests
+import json
+from urllib.parse import urlparse
 
 st.set_page_config(layout="wide", page_title="AudioQA Dataset Validation")
 
@@ -35,30 +37,44 @@ st.markdown("""
   </style>
   """, unsafe_allow_html=True)
 
-# --- ENHANCED STRUCTURAL QC LOGIC ---
+
+
 def perform_structural_qc(row):
-    """Full structural validation of a single row."""
+    """Full structural validation: Links + Transcription Format."""
     cols_to_check = ['speaker_A_audio', 'speaker_B_audio', 'combined_audio']
     
-    # 1. Check for missing values (NaN or Empty String)
+    # 1. Check for missing values
     if row.isnull().any() or (row == "").any():
         return False, "Missing Data: One or more cells are empty"
 
-    # 2. Check Link Validity
+    # 2. Check Audio Link Validity
     for col in cols_to_check:
         url = str(row[col])
-        
-        # Basic Format Check
         if not url.startswith("http"):
             return False, f"Invalid URL Format in {col.replace('_', ' ')}"
-        
-        # Live Link Check (404 check)
         try:
             r = requests.head(url, timeout=3, allow_redirects=True)
             if r.status_code != 200:
                 return False, f"Link Broken (Status {r.status_code}) in {col.replace('_', ' ')}"
-        except Exception:
+        except:
             return False, f"Connection Error in {col.replace('_', ' ')}"
+
+    # 3. NEW: Transcription Format Check (.json or Google Drive)
+    trans = str(row['transcription']).strip()
+    
+    # Check if it's a Google Drive Link
+    is_drive = "drive.google.com" in trans
+    
+    # Check if it's a JSON string
+    is_json = False
+    try:
+        json.loads(trans)
+        is_json = True
+    except:
+        is_json = False
+
+    if not (is_drive or is_json):
+        return False, "Transcription Error: Must be a JSON string OR Google Drive link"
             
     return True, "Pass"
 
