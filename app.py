@@ -105,19 +105,43 @@ if 'results' not in st.session_state: st.session_state.results = []
 st.title("NEW VALIDATION RUN")
 
 # --- STEP 1: UPLOAD ---
+# --- STEP 1: UPLOAD ---
 if st.session_state.step == 'upload':
-    # label_visibility="collapsed" to let our CSS pseudo-elements take over
+    st.title("NEW VALIDATION RUN")
     main_csv = st.file_uploader("Upload", type="csv", label_visibility="collapsed")
     
-    # Render the column pills exactly as requested
     REQUIRED_COLUMNS = ['audio_id', 'speaker_A_audio', 'speaker_B_audio', 'combined_audio', 'transcription']
     cols_html = "".join([f'<div class="pill">{col}</div>' for col in REQUIRED_COLUMNS])
     st.markdown(f'<div class="pill-container">{cols_html}</div>', unsafe_allow_html=True)
 
     if main_csv is not None:
-        st.session_state.df = pd.read_csv(main_csv)
-        st.session_state.row_count = len(st.session_state.df)
-        st.session_state.file_name = main_csv.name
+        temp_df = pd.read_csv(main_csv)
+        
+        # Check if all required columns exist
+        missing_cols = [col for col in REQUIRED_COLUMNS if col not in temp_df.columns]
+        
+        if missing_cols:
+            # Error handling matching the screenshot style
+            st.error(f"""
+                **Parse Errors** • Missing required columns: {", ".join(missing_cols)}
+            """)
+        else:
+            # If everything is correct, proceed
+            st.session_state.df = temp_df
+            st.session_state.row_count = len(st.session_state.df)
+            st.session_state.file_name = main_csv.name
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.write("### Preview")
+            st.table(st.session_state.df.head(2))
+            
+            if st.button("Continue to Validation →"):
+                st.session_state.step = 'ready'
+                st.rerun()
+    
+
+
+  
         
         # Show preview
         st.markdown("<br>", unsafe_allow_html=True)
